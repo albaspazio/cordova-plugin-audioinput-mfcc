@@ -1,9 +1,9 @@
 {
-  "name": "cordova-plugin-audioinput",
+  "name": "cordova-plugin-audioinput-mfcc",
   "version": "0.3.0",
   "description": "This cordova plugin enables audio capture from the device microphone, by in (near) real-time forwarding raw audio data to the web layer of your application.",
   "cordova": {
-    "id": "cordova-plugin-audioinput",
+    "id": "cordova-plugin-audioinput-mfcc",
     "platforms": [
       "android",
       "ios"
@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/edimuj/cordova-plugin-audioinput.git"
+    "url": "git+https://gitlab.iit.it/AllSpeak/cordova-plugin-audioinput-mfcc.git"
   },
   "keywords": [
     "ecosystem:cordova",
@@ -36,7 +36,7 @@
   "author": "Edin Mujkanovic",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/edimuj/cordova-plugin-audioinput/issues"
+    "url": "https://gitlab.iit.it/AllSpeak/cordova-plugin-audioinput-mfcc.git/issues"
   },
-  "homepage": "https://github.com/edimuj/cordova-plugin-audioinput#readme"
+  "homepage": "https://gitlab.iit.it/AllSpeak/cordova-plugin-audioinput-mfcc.git#readme"
 }

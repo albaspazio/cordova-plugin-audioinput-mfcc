@@ -1,4 +1,4 @@
-package com.exelerus.cordova.audioinputcapture;
+package com.allspeak.audiocapture;
 
 import android.media.AudioFormat;
 import android.media.AudioRecord;
@@ -7,9 +7,11 @@ import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import java.util.Arrays;
 
 import android.util.Base64;
+
+import java.util.Arrays;
+import java.io.InterruptedIOException;
 
 public class AudioInputReceiver extends Thread {
 
@@ -18,6 +20,7 @@ public class AudioInputReceiver extends Thread {
     private int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
     private int sampleRateInHz = 44100;
     private int audioSource = 0;
+    private static float fNormalizationFactor = (float)32767.0;
 
     // For the recording buffer
     private int minBufferSize = AudioRecord.getMinBufferSize(sampleRateInHz, channelConfig, audioFormat);
@@ -30,14 +33,19 @@ public class AudioInputReceiver extends Thread {
     private Handler handler;
     private Message message;
     private Bundle messageBundle = new Bundle();
-
+    
     public AudioInputReceiver() {
         recorder = new AudioRecord(MediaRecorder.AudioSource.DEFAULT, sampleRateInHz, channelConfig, audioFormat, minBufferSize * RECORDING_BUFFER_FACTOR);
     }
 
-    public AudioInputReceiver(int sampleRate, int bufferSizeInBytes, int channels, String format, int audioSource) {
-        sampleRateInHz = sampleRate;
-
+    public AudioInputReceiver(int sampleRate, int bufferSizeInBytes, int channels, String format, int audioSource) 
+    {
+        this(sampleRate, bufferSizeInBytes, channels, format, audioSource, fNormalizationFactor);
+    }
+    public AudioInputReceiver(int sampleRate, int bufferSizeInBytes, int channels, String format, int audioSource, float _normalizationFactor) 
+    {
+        sampleRateInHz      = sampleRate;
+        fNormalizationFactor = _normalizationFactor;
         switch (channels) {
             case 2:
                 channelConfig = AudioFormat.CHANNEL_IN_STEREO;
@@ -63,7 +71,6 @@ public class AudioInputReceiver extends Thread {
         recordingBufferSize = readBufferSize * RECORDING_BUFFER_FACTOR;
 
         // Ensure that the given recordingBufferSize isn't lower than the minimum buffer size allowed for the current configuration
-        //
         if (recordingBufferSize < minBufferSize) {
             recordingBufferSize = minBufferSize;
         }
@@ -74,40 +81,66 @@ public class AudioInputReceiver extends Thread {
     public void setHandler(Handler handler) {
         this.handler = handler;
     }
+    
+    public void sendMessageToHandler(String field, String info)
+    {
+        message = handler.obtainMessage();
+        messageBundle.putString(field, info);
+        message.setData(messageBundle);
+        handler.sendMessage(message);        
+    }    
+    
+    public void sendDataToHandler(String field, float[] normalized_audio)
+    {
+        message = handler.obtainMessage();
+        messageBundle.putFloatArray(field, normalized_audio);
+        message.setData(messageBundle);
+        handler.sendMessage(message);        
+    }    
+    
+    private float[] normalizeAudio(short[] pcmData) 
+    {
+        int len         = pcmData.length;
+        float[] data    = new float[len];
+        for (int i = 0; i < len ; i++) {
+            data[i]     = (float)(pcmData[i]/fNormalizationFactor);
+        }
+
+//        // If last value is NaN, remove it.
+//        if (Float.isNaN(data[data.length - 1])) {
+//            data = ArrayUtils.remove(data, data.length - 1);
+//        }
+        return data;
+    }
+
 
     @Override
     public void run() {
         int numReadBytes = 0;
-        short audioBuffer[] = new short[readBufferSize];
-
+        short[] audioBuffer = new short[readBufferSize];
+         
         synchronized(this) {
             recorder.startRecording();
 
-            while (!isInterrupted()) {
-                numReadBytes = recorder.read(audioBuffer, 0, readBufferSize);
-
-                if (numReadBytes > 0) {
-                    try {
-                        String decoded = Arrays.toString(audioBuffer);
-
-                        message = handler.obtainMessage();
-                        messageBundle.putString("data", decoded);
-                        message.setData(messageBundle);
-                        handler.sendMessage(message);
-                    }
-                    catch(Exception ex) {
-                        message = handler.obtainMessage();
-                        messageBundle.putString("error", ex.toString());
-                        message.setData(messageBundle);
-                        handler.sendMessage(message);
+            while (!isInterrupted()) 
+            {
+                try
+                {
+                    numReadBytes = recorder.read(audioBuffer, 0, readBufferSize);
+                    if (numReadBytes > 0)
+                    {
+                        float[] normalizedData  = normalizeAudio(audioBuffer);
+                        sendDataToHandler("data", normalizedData);
                     }
                 }
+                catch(Exception ex) {
+                    sendMessageToHandler("error", ex.toString());
+                    break;
+                }
             }
-
             if (recorder.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
                 recorder.stop();
             }
-
             recorder.release();
             recorder = null;
         }

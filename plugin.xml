@@ -1,18 +1,18 @@
 <?xml version='1.0' encoding='utf-8'?>
-<plugin id="cordova-plugin-audioinput"
-        version="0.3.0"
+<plugin id="cordova-plugin-audioinput-mfcc"
+        version="0.1.0"
         xmlns="http://apache.org/cordova/ns/plugins/1.0"
         xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <name>Audio Input</name>
-    <description>This cordova plugin enables audio capture from the device microphone, by in (near) real-time forwarding raw audio data to the web layer of your web application.</description>
-	<author>Edin Mujkanovic</author>
+    <name>Audio Capture MFCC</name>
+    <description>This cordova plugin enables audio capture from the device microphone, by in (near) real-time forwarding raw audio data to the web layer of your web application. Additionally may calculate and export the Mel Based coefficients</description>
+	<author>Alberto Inuggu</author>
 	<license>MIT</license>
     <keywords>cordova,phonegap,media,microphone,mic,input,audio,waapi,audionode,web,audio,api,audionode,capture,ios,android</keywords>
-    <repo>https://github.com/edimuj/cordova-plugin-audioinput.git</repo>
-    <issue>https://github.com/edimuj/cordova-plugin-audioinput/issues</issue>
+    <repo>https://gitlab.iit.it/AllSpeak/cordova-plugin-audioinput-mfcc.git</repo>
+    <issue>https://gitlab.iit.it/AllSpeak/cordova-plugin-audioinput-mfcc/issues</issue>
 
-    <js-module name="AudioInput" src="www/audioInputCapture.js">
+    <js-module name="AudioInput" src="www/audioInputMfcc.js">
         <clobbers target="audioinput" />
     </js-module>
 
@@ -22,8 +22,8 @@
     <platform name="android">
 
         <config-file parent="/*" target="res/xml/config.xml">
-            <feature name="AudioInputCapture">
-                <param name="android-package" value="com.exelerus.cordova.audioinputcapture.AudioInputCapture" />
+            <feature name="AudioInputCaptureMFCC">
+                <param name="android-package" value="com.allspeak.AudioInputMfccPlugin" />
             </feature>
         </config-file>
 
@@ -31,13 +31,22 @@
             <uses-permission android:name="android.permission.RECORD_AUDIO" />
         </config-file>
 
-        <source-file src="src/android/AudioInputCapture.java" target-dir="src/com/exelerus/cordova/audioinputcapture" />
-        <source-file src="src/android/AudioInputReceiver.java" target-dir="src/com/exelerus/cordova/audioinputcapture" />
+        <source-file src="src/android/com/allspeak/AudioInputMfccPlugin.java" target-dir="src/com/allspeak" />
+        <source-file src="src/android/com/allspeak/audiocapture/AudioInputCapture.java" target-dir="src/com/allspeak/audiocapture" />
+        <source-file src="src/android/com/allspeak/audiocapture/AudioInputReceiver.java" target-dir="src/com/allspeak/audiocapture" />
+        <source-file src="src/android/com/allspeak/audiocapture/CFGParams.java" target-dir="src/com/allspeak/audiocapture" />
+        <source-file src="src/android/com/allspeak/audioprocessing/FFT.java" target-dir="src/com/allspeak/audioprocessing" />
+        <source-file src="src/android/com/allspeak/audioprocessing/WavFile.java" target-dir="src/com/allspeak/audioprocessing" />
+        <source-file src="src/android/com/allspeak/audioprocessing/mfcc/MFCC.java" target-dir="src/com/allspeak/audioprocessing/mfcc" />
+        <source-file src="src/android/com/allspeak/audioprocessing/mfcc/MFCCCalcJAudio.java" target-dir="src/com/allspeak/audioprocessing/mfcc" />
+        <source-file src="src/android/com/allspeak/audioprocessing/mfcc/MFCCParams.java" target-dir="src/com/allspeak/audioprocessing/mfcc" />
+        <source-file src="src/android/com/allspeak/utility/StringUtility.java" target-dir="src/com/allspeak/utility/" />   
+        <source-file src="src/android/com/allspeak/utility/TrackPerformance.java" target-dir="src/com/allspeak/utility/" />   
 
     </platform>
 
     <!-- ios -->
-    <platform name="ios">
+<!--    <platform name="ios">
 
         <config-file parent="/*" target="config.xml">
             <feature name="AudioInputCapture">
@@ -54,6 +63,6 @@
         <framework src="AudioToolbox.framework" weak="true" />
         <framework src="AVFoundation.framework" weak="true" />
 
-    </platform>
+    </platform>-->
 
 </plugin>
