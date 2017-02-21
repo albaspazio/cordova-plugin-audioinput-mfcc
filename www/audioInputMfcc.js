@@ -197,7 +197,7 @@ audioinput.start = function (captureCfg, mfccCfg, startMFCC) {
  */
 audioinput.stop = function () {
     if (audioinput._capturing) {
-        exec(null, audioinput._audioInputErrorEvent, audioinput.pluginName, "stopCapture", []);
+        exec(audioinput._stopaudioInputEvent, audioinput._audioInputErrorEvent, audioinput.pluginName, "stopCapture", []);
         audioinput._capturing = false;    
     }
 
@@ -256,7 +256,7 @@ audioinput.getMFCC = function(successCB, errorCB, mfcc_params, source, filepath_
 //==================================================================================================================
 //==================================================================================================================
 /**
- * Callback for audio input
+ * Callback from plugin
  *
  * @param {Object} audioInputData     keys: data (PCM)
  */
@@ -280,6 +280,11 @@ audioinput._audioInputEvent = function (audioInputData) {
     catch (ex) {
         audioinput._audioInputErrorEvent("audioinput._audioInputEvent ex: " + ex);
     }
+};
+
+audioinput._stopaudioInputEvent = function(capturedblocks)
+{
+    console.log("audioInputMfcc._stopaudioInputEvent: captured " + parseInt(capturedblocks)*12 + " time windows");
 };
 
 /**

@@ -42,6 +42,8 @@ public class AudioInputMfccPlugin extends CordovaPlugin
     public static final int DATADEST_JS         = 1;    
     private int nDataDest                       = DATADEST_JS;        // send back to Web Layer or not    
     private boolean isCapturing                 = false;
+    
+    private int nCapturedBlocks                 = 0;
     //-----------------------------------------------------------------------------------------------
     // MFCC
     private final MFCCHandler mfccHandler       = new MFCCHandler(this);
@@ -115,6 +117,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
             try
             {
                 aicCapture.start();  //asynchronous call, cannot return anything since a permission request may be called 
+                nCapturedBlocks = 0;
                 sendNoResult2Web();
             }
             catch (Exception e) 
@@ -128,8 +131,9 @@ public class AudioInputMfccPlugin extends CordovaPlugin
         }
         else if (action.equals("stopCapture")) 
         {
+            callbackContext = _callbackContext;
             aicCapture.stop();
-            callbackContext.success();
+            callbackContext.success(nCapturedBlocks);
             callbackContext = null;
         }        
         else if (action.equals("startMFCC")) 
@@ -206,7 +210,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
         }
     }
     /**
-     * Create a new plugin result and send it back to JavaScript
+     * Create a NO RESULT plugin result and send it back to JavaScript
      */
     private void sendNoResult2Web() {
         if (callbackContext != null) {
@@ -258,6 +262,8 @@ public class AudioInputMfccPlugin extends CordovaPlugin
             }
             sendUpdate(info, true);        
         }
+        
+        nCapturedBlocks++;
         
         // calculate MFCC/MFFILTERS ??
         if(bCalculateMFCC)   mfcc.getMFCC(data, cordovaInterface.getThreadPool());

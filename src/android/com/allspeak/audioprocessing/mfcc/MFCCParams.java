@@ -34,10 +34,11 @@ public class MFCCParams
     public boolean bCalculate0ThCoeff       = true;   
     public int nWindowDistance              = 80;   
     public int nWindowLength                = 200;   
-    public int nDataType                    = DATATYPE_MFFILTERS; //without considering 0-th
+    public int nDataType                    = DATATYPE_MFFILTERS; 
     public int nDataDest                    = DATADEST_NONE;    
     public int nDataOrig                    = DATAORIGIN_RAWDATA;    
     public String sOutputPath               = "";    
+    public int nDeltaWindow                 = 2;    // values used in getDerivatives
 
     public MFCCParams(JSONObject init)
     {
@@ -89,6 +90,9 @@ public class MFCCParams
                         break;
                     case "sOutputPath":
                         sOutputPath             = init.getString(field);
+                        break;                        
+                    case "nDeltaWindow":
+                        nDeltaWindow            = init.getInt(field);
                         break;                        
                 }
             }
