@@ -141,6 +141,7 @@ public class AudioInputReceiver extends Thread {
             if (recorder.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
                 recorder.stop();
             }
+            sendMessageToHandler("stop", "");
             recorder.release();
             recorder = null;
         }

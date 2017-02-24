@@ -25,6 +25,17 @@ import com.allspeak.audioprocessing.WavFile;
 import com.allspeak.utility.StringUtility;
 import com.allspeak.utility.TrackPerformance;
 
+
+
+/*
+it sends the following messages to Plugin Activity:
+- data
+- progress_file
+- progress_folder
+- error
+
+*/
+
 public class MFCC  
 {
     private static final String TAG = "MFCC";
@@ -39,8 +50,9 @@ public class MFCC
     private int nFrames                     = 0;        // number of frames used to segment the input audio
     private int nScores                     = 0;        // either nNumberofFilters or nNumberOfMFCCParameters according to requeste measure
     
-    private final String sOutputMFCCPrecision     = "%.6f";       // label of the element the audio belongs to
-    private final String sOutputFiltersPrecision  = "%.6f";       // label of the element the audio belongs to
+    private String sOutputPrecision           = "%.4f";       // label of the element the audio belongs to
+    private final String sOutputMFCCPrecision       = "%.4f";       // label of the element the audio belongs to
+    private final String sOutputFiltersPrecision    = "%.4f";       // label of the element the audio belongs to
   
     private float[][] faMFCC;           // contains (nframes, numparams) calculated MFCC
     private float[][] faFilterBanks;    // contains (nframes, numparams) calculated FilterBanks
@@ -64,9 +76,10 @@ public class MFCC
     public MFCC(MFCCParams params, Handler handl)
     {
         // JS interface call params:     mfcc_json_params, source, datatype, origintype, write, [outputpath_noext];  params have been validated in the js interface
-        mfccParams  = params; 
-        handler     = handl;
-        nScores     = (mfccParams.nDataType == MFCCParams.DATATYPE_MFCC ? mfccParams.nNumberOfMFCCParameters : mfccParams.nNumberofFilters);
+        mfccParams      = params; 
+        handler         = handl;
+        nScores         = (mfccParams.nDataType == MFCCParams.DATATYPE_MFCC ? mfccParams.nNumberOfMFCCParameters : mfccParams.nNumberofFilters);
+        sOutputPrecision= (mfccParams.nDataType == MFCCParams.DATATYPE_MFCC ? sOutputMFCCPrecision : sOutputFiltersPrecision);
         
         if ((boolean)mfccParams.bCalculate0ThCoeff)    
             mfccParams.nNumberOfMFCCParameters = mfccParams.nNumberOfMFCCParameters + 1;//take in account the zero-th MFCC        
@@ -188,14 +201,17 @@ public class MFCC
             mfccParams.sOutputPath  = input_file_noext;
             String sAudiofile       = input_file_noext + ".wav";
             float[] data            = readWav(sAudiofile);  
+            deleteParamsFiles(mfccParams.sOutputPath);            
 //            tp.addTimepoint(1);
             processRawData(data);
-//            tp.addTimepoint(2);                
+//            tp.addTimepoint(2);   
+            sendMessageToHandler("progress_file", mfccParams.sOutputPath);
          }
         catch(Exception e)
         {
             e.printStackTrace();
             Log.e(TAG, "processFile" + ": Error: " + e.toString());
+            sendMessageToHandler("error", e.toString());
         }        
     }
     
@@ -219,6 +235,7 @@ public class MFCC
                 tempfile            = input_folderpath + File.separatorChar + files[i].getName();
                 processFile(StringUtility.removeExtension(tempfile));
             }   
+            sendMessageToHandler("progress_folder", input_folderpath);            
 //            int elapsed = tp_folder.addTimepoint(1);  tp_folder.endTracking(1);
 //            JSONArray array = new JSONArray();  array.put(0, "Finished parsing the " + input_folderpath + " folder");  array.put(1, Integer.toString(elapsed));            
 //            return new PluginResult(PluginResult.Status.OK, array);
@@ -227,6 +244,7 @@ public class MFCC
         {
             e.printStackTrace();
             Log.e(TAG, "processFolder" + ": Error: " + e.toString());
+            sendMessageToHandler("error", e.toString());            
         }    
     }
     //======================================================================================
@@ -240,53 +258,41 @@ public class MFCC
             res_jsonarray.put(0, "processed file:" + mfccParams.sOutputPath);
             String scores                   = "";
             String[] derivatives            = new String[2];
-            if(mfccParams.nDataDest > 0) 
+            
+            // if goes to file or file+web....transform them to String
+            if(mfccParams.nDataDest == MFCCParams.DATADEST_FILE || mfccParams.nDataDest == MFCCParams.DATADEST_BOTH) 
             {
-                if(mfccParams.nDataType == MFCCParams.DATATYPE_MFCC)
-                {
-                    scores          = exportArray2String(faMFCC, mfccParams.nNumberOfMFCCParameters, sOutputMFCCPrecision);
-                    derivatives[0]  = exportArray2String(faDerivatives[0], mfccParams.nNumberOfMFCCParameters, sOutputMFCCPrecision);
-                    derivatives[1]  = exportArray2String(faDerivatives[1], mfccParams.nNumberOfMFCCParameters, sOutputMFCCPrecision);
-                } 
-                else
-                {
-                    scores          = exportArray2String(faFilterBanks, mfccParams.nNumberofFilters, sOutputFiltersPrecision);
-                    derivatives[0]  = exportArray2String(faDerivatives[0], mfccParams.nNumberofFilters, sOutputFiltersPrecision);                    
-                    derivatives[1]  = exportArray2String(faDerivatives[1], mfccParams.nNumberofFilters, sOutputFiltersPrecision);                    
-                }        
-//                tp.addTimepoint(3);                
-            }
-//            else{ int[] elapsed = tp.endTracking();                res_jsonarray.put(1, new JSONArray(elapsed)); }
-
-            if(mfccParams.nDataDest == MFCCParams.DATADEST_FILE || mfccParams.nDataDest == MFCCParams.DATADEST_BOTH)
-            {
+                if(mfccParams.nDataType == MFCCParams.DATATYPE_MFCC)    scores = exportArray2String(faMFCC, nScores, sOutputPrecision);
+                else                                                    scores = exportArray2String(faFilterBanks, nScores, sOutputPrecision);
+                
+                derivatives[0]  = exportArray2String(faDerivatives[0], nScores, sOutputPrecision);
+                derivatives[1]  = exportArray2String(faDerivatives[1], nScores, sOutputPrecision);
+                
                 writeTextParams(scores, mfccParams.sOutputPath + "_scores.dat");
                 writeTextParams(derivatives[0], mfccParams.sOutputPath + "_scores1st.dat");
-                writeTextParams(derivatives[1], mfccParams.sOutputPath + "_scores2nd.dat");
-//                tp.addTimepoint(4);                
+                writeTextParams(derivatives[1], mfccParams.sOutputPath + "_scores2nd.dat");    
+    //                tp.addTimepoint(4);                
             }
+            sendDataToHandler(data);  
             
-            if(mfccParams.nDataDest == MFCCParams.DATADEST_JS || mfccParams.nDataDest == MFCCParams.DATADEST_BOTH)
-            {
-//                JSONArray array_params;
-//                JSONArray array_params1st;
-//                JSONArray array_params2nd;
-//                if(mfccParams.nDataType == MFCCParams.DATATYPE_MFCC)
-//                    array_params    = new JSONArray(faMFCC);
-//                else
-//                    array_params    = new JSONArray(faFilterBanks);   
-//
-//                array_params1st     = new JSONArray(faDerivatives[0]); 
-//                array_params2nd     = new JSONArray(faDerivatives[1]); 
+//            if(mfccParams.nDataDest == MFCCParams.DATADEST_JS || mfccParams.nDataDest == MFCCParams.DATADEST_BOTH)
+//            {
+//                JSONArray array_params; JSONArray array_params1st; JSONArray array_params2nd;
 //                
+//                if(mfccParams.nDataType == MFCCParams.DATATYPE_MFCC)  array_params    = new JSONArray(faMFCC);
+//                else                                                  array_params    = new JSONArray(faFilterBanks);   
+//                
+//                array_params1st     = new JSONArray(faDerivatives[0]); array_params2nd     = new JSONArray(faDerivatives[1]); 
 ////                tp.addTimepoint(5);                
-//                res_jsonarray.put(2, array_params);
-//                res_jsonarray.put(3, array_params1st);
-//                res_jsonarray.put(4, array_params2nd);
-                sendDataToHandler("data", data);
-            }
-            else    sendMessageToHandler("progress", mfccParams.sOutputPath);
-//            int[] elapsed = tp.endTracking(); res_jsonarray.put(1, new JSONArray(elapsed));            
+//                res_jsonarray.put(2, array_params); res_jsonarray.put(3, array_params1st);  res_jsonarray.put(4, array_params2nd);
+////                sendDataToHandler("data", data);
+//            }
+//            else    sendMessageToHandler("progress", mfccParams.sOutputPath);
+////            int[] elapsed = tp.endTracking(); res_jsonarray.put(1, new JSONArray(elapsed));  
+//            
+          
+//            else{ int[] elapsed = tp.endTracking();                res_jsonarray.put(1, new JSONArray(elapsed)); }
+          
         }
         catch(JSONException e)
         {
@@ -328,7 +334,7 @@ public class MFCC
             }
         }  
         return res;
-    };
+    }
 
     private boolean writeTextParamsLabel(String params, String output_file, String label)
     {
@@ -350,20 +356,19 @@ public class MFCC
         return res;
     };
     
-    
     private boolean deleteParamsFiles(String output_file)
     {
         boolean res1=false,res2=false,res3=false;
         
         File f;
         f = new File(Environment.getExternalStorageDirectory(), output_file + "_scores.dat");
-        if (!f.exists()) res1 = f.delete();
+        if (f.exists()) res1 = f.delete();
 
         f = new File(Environment.getExternalStorageDirectory(), output_file + "_scores1st.dat");
-        if (!f.exists()) res2 = f.delete();
+        if (f.exists()) res2 = f.delete();
 
         f = new File(Environment.getExternalStorageDirectory(), output_file + "_scores2nd.dat");
-        if (!f.exists()) res3 = f.delete();
+        if (f.exists()) res3 = f.delete();
         
         return res1 && res2 && res3;
     }
@@ -378,13 +383,14 @@ public class MFCC
         handler.sendMessage(message);        
     }    
     
-    private void sendDataToHandler(String field, float[][] mfcc_data)
+    private void sendDataToHandler(float[][] mfcc_data)
     {
         message = handler.obtainMessage();
         float[] mfcc = flatten2DimArray(mfcc_data);
-        messageBundle.putFloatArray(field, mfcc);
+        messageBundle.putFloatArray("data", mfcc);
         messageBundle.putInt("nframes", nFrames);
         messageBundle.putInt("nparams", nScores);
+        messageBundle.putString("source", mfccParams.sOutputPath);
         message.setData(messageBundle);
         handler.sendMessage(message);        
     }      

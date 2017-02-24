@@ -10,14 +10,14 @@ public class MFCCParams
 {
     
     // map objects in the javascript interface
-    public static final int DATATYPE_NONE       = 0;
     public static final int DATATYPE_MFCC       = 1;
     public static final int DATATYPE_MFFILTERS  = 2;
     
-    public static final int DATADEST_NONE       = 0;
-    public static final int DATADEST_JS         = 1;
-    public static final int DATADEST_FILE       = 2;
-    public static final int DATADEST_BOTH       = 3;    
+    public static final int DATADEST_NONE       = 0;    // returns mfcc to plugin activity
+    public static final int DATADEST_JSPROGRESS = 1;    //   "" + send progress(filename) to WEB
+    public static final int DATADEST_JSDATA     = 2;    //   "" + send progress(filename) + data(JSONArray) to WEB
+    public static final int DATADEST_FILE       = 3;    //   "" + write data(String) to file
+    public static final int DATADEST_BOTH       = 4;    //   "" + write data(String) to file + send progress(filename) + data(JSONArray) to WEB
     
     public static final int DATAORIGIN_JSONDATA = 1;
     public static final int DATAORIGIN_FILE     = 2;
