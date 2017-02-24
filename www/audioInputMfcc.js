@@ -1,7 +1,7 @@
-var argscheck = require('cordova/argscheck'),
-    utils = require('cordova/utils'),
-    exec = require('cordova/exec'),
-    channel = require('cordova/channel');
+var argscheck   = require('cordova/argscheck'),
+    utils       = require('cordova/utils'),
+    exec        = require('cordova/exec'),
+    channel     = require('cordova/channel');
 
 var audioinput          = {};
 
@@ -9,6 +9,18 @@ audioinput.pluginName   = "AudioInputCaptureMFCC";
 audioinput.ENUM         = {};
 audioinput.ENUM.capture = {};
 audioinput.ENUM.mfcc    = {};
+
+
+audioinput.ENUM.RETURN  = {
+    CAPTURE_DATA          : 1, //
+    CAPTURE_STOP          : 2, //
+    CAPTURE_ERROR         : 3, //
+    MFCC_DATA             : 10, //
+    MFCC_DATA_PROGRESS    : 11, //
+    MFCC_PROGRESS_FILE    : 12, //
+    MFCC_PROGRESS_FOLDER  : 13, //
+    MFCC_ERROR            : 14 //
+}; 
 
 // Supported audio formats
 audioinput.ENUM.capture.FORMAT = {
@@ -57,7 +69,6 @@ audioinput.ENUM.capture.DEFAULT = {
 };
 
 audioinput.ENUM.mfcc.DATATYPE={
-    NONE        : 0,
     FCC         : 1,
     MFFILTERS   : 2
 };
@@ -70,10 +81,11 @@ audioinput.ENUM.mfcc.DATAORIGIN={
 };
 
 audioinput.ENUM.mfcc.DATADEST={
-    NONE    : 0,
-    JS      : 1,
-    FILE    : 2,
-    BOTH    : 3
+    NONE        : 0,
+    JSPROGRESS  : 1,
+    JSDATA      : 2,
+    FILE        : 3,
+    BOTH        : 4
 };
 
 audioinput.ENUM.mfcc.DEFAULT = {
@@ -169,7 +181,7 @@ audioinput.start = function (captureCfg, mfccCfg, startMFCC) {
         var json_capture_params     = audioinput.checkCaptureParams(captureCfg);
         var json_mfcc_params        = audioinput.checkMfccParams(mfccCfg);
         
-        exec(audioinput._audioInputEvent, audioinput._audioInputErrorEvent, audioinput.pluginName, "startCapture",
+        exec(audioinput._captureEvent, audioinput._captureErrorEvent, audioinput.pluginName, "startCapture",
             [json_capture_params,
              json_mfcc_params,
              startMFCC]);
@@ -197,7 +209,7 @@ audioinput.start = function (captureCfg, mfccCfg, startMFCC) {
  */
 audioinput.stop = function () {
     if (audioinput._capturing) {
-        exec(audioinput._stopaudioInputEvent, audioinput._audioInputErrorEvent, audioinput.pluginName, "stopCapture", []);
+        exec(audioinput._captureEvent, audioinput._captureErrorEvent, audioinput.pluginName, "stopCapture", []);
         audioinput._capturing = false;    
     }
 
@@ -214,7 +226,7 @@ audioinput.stop = function () {
  */
 audioinput.startMFCC = function () {
     if (audioinput._capturing) 
-        exec(null, audioinput._audioInputErrorEvent, audioinput.pluginName, "stopMFCC", [audioinput.mfcc.params]);
+        exec(null, audioinput._captureErrorEvent, audioinput.pluginName, "stopMFCC", [audioinput.mfcc.params]);
 };
 
 /**
@@ -222,7 +234,7 @@ audioinput.startMFCC = function () {
  */
 audioinput.stopMFCC = function () {
     if (audioinput._capturing) 
-        exec(null, audioinput._audioInputErrorEvent, audioinput.pluginName, "stopMFCC", []);
+        exec(null, audioinput._captureErrorEvent, audioinput.pluginName, "stopMFCC", []);
 };
 
 
@@ -253,28 +265,45 @@ audioinput.getMFCC = function(successCB, errorCB, mfcc_params, source, filepath_
     
     exec(audioinput.onMFCCSuccess, audioinput.onMFCCError, audioinput.pluginName, 'getMFCC', [mfcc_json_params, source, filepath_noext]);            
 };
+
 //==================================================================================================================
+// FROM PLUGIN TO WEBLAYER
 //==================================================================================================================
 /**
  * Callback from plugin
  *
  * @param {Object} audioInputData     keys: data (PCM)
  */
-audioinput._audioInputEvent = function (audioInputData) {
+audioinput._captureEvent = function (data) {
     try {
-        if (audioInputData && audioInputData.data && audioInputData.data.length > 0) {
-            var audioData = JSON.parse(audioInputData.data);
-//            audioData = audioinput._normalizeAudio(audioData);
+        switch(data.type)
+        {
+            case audioinput.ENUM.RETURN.CAPTURE_DATA:
+                
+                if (data && data.data && data.data.length > 0) {
+                    var audioData = JSON.parse(data.data);
 
-            if (audioinput.capture.params.bStreamToWebAudio && audioinput._capturing) {
-                audioinput._enqueueAudioData(audioData);
-            }
-            else {
-                cordova.fireWindowEvent("audioinput", {data: audioData});
-            }
-        }
-        else if (audioInputData && audioInputData.error) {
-            audioinput._audioInputErrorEvent(audioInputData.error);
+                    if(audioinput.capture.params.bStreamToWebAudio && audioinput._capturing)
+                            audioinput._enqueueAudioData(audioData);
+                    else    cordova.fireWindowEvent("audioinput", {data: audioData});
+                }
+                else if (data && data.error) {
+                    audioinput._captureErrorEvent(data.error);
+                }
+                break;
+                
+            case audioinput.ENUM.RETURN.CAPTURE_STOP:
+                console.log("audioInputMfcc._stopaudioInputEvent: captured " + parseInt(data.data)*12 + " time windows");
+                break;
+                
+            case audioinput.ENUM.RETURN.MFCC_DATA:
+                
+                break;
+                
+            case audioinput.ENUM.RETURN.MFCC_DATA_PROGRESS:
+                
+                break;
+                
         }
     }
     catch (ex) {
@@ -282,17 +311,12 @@ audioinput._audioInputEvent = function (audioInputData) {
     }
 };
 
-audioinput._stopaudioInputEvent = function(capturedblocks)
-{
-    console.log("audioInputMfcc._stopaudioInputEvent: captured " + parseInt(capturedblocks)*12 + " time windows");
-};
-
 /**
  * Error callback for AudioInputCapture start
  * @private
  */
 
-audioinput._audioInputErrorEvent = function (e) {
+audioinput._captureErrorEvent = function (e) {
     cordova.fireWindowEvent("audioinputerror", {message: e});
 };
 
@@ -310,7 +334,7 @@ audioinput.onMFCCError = function (e) {
 };
 
 //==================================================================================================================
-//==================================================================================================================
+// INTERNAL
 //==================================================================================================================
 /**
  * Connect the audio node
