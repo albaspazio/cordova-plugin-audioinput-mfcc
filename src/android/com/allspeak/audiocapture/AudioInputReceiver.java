@@ -15,12 +15,12 @@ import java.io.InterruptedIOException;
 
 public class AudioInputReceiver extends Thread {
 
-    private final int RECORDING_BUFFER_FACTOR = 5;
-    private int channelConfig = AudioFormat.CHANNEL_IN_MONO;
-    private int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
-    private int sampleRateInHz = 44100;
-    private int audioSource = 0;
-    private static float fNormalizationFactor = (float)32767.0;
+    private final int RECORDING_BUFFER_FACTOR   = 5;
+    private int channelConfig                   = AudioFormat.CHANNEL_IN_MONO;
+    private int audioFormat                     = AudioFormat.ENCODING_PCM_16BIT;
+    private int sampleRateInHz                  = 44100;
+    private int nTotalReadBytes                 = 0;
+    private static float fNormalizationFactor   = (float)32767.0;
 
     // For the recording buffer
     private int minBufferSize = AudioRecord.getMinBufferSize(sampleRateInHz, channelConfig, audioFormat);
@@ -90,6 +90,14 @@ public class AudioInputReceiver extends Thread {
         handler.sendMessage(message);        
     }    
     
+    public void sendMessageToHandler(String field, int num)
+    {
+        message = handler.obtainMessage();
+        messageBundle.putInt(field, num);
+        message.setData(messageBundle);
+        handler.sendMessage(message);        
+    }    
+    
     public void sendDataToHandler(String field, float[] normalized_audio)
     {
         message = handler.obtainMessage();
@@ -116,12 +124,13 @@ public class AudioInputReceiver extends Thread {
 
     @Override
     public void run() {
-        int numReadBytes = 0;
+        int numReadBytes    = 0;
+        nTotalReadBytes     = 0;
         short[] audioBuffer = new short[readBufferSize];
          
-        synchronized(this) {
+        synchronized(this) 
+        {
             recorder.startRecording();
-
             while (!isInterrupted()) 
             {
                 try
@@ -129,6 +138,7 @@ public class AudioInputReceiver extends Thread {
                     numReadBytes = recorder.read(audioBuffer, 0, readBufferSize);
                     if (numReadBytes > 0)
                     {
+                        nTotalReadBytes         += numReadBytes; 
                         float[] normalizedData  = normalizeAudio(audioBuffer);
                         sendDataToHandler("data", normalizedData);
                     }
@@ -141,7 +151,7 @@ public class AudioInputReceiver extends Thread {
             if (recorder.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
                 recorder.stop();
             }
-            sendMessageToHandler("stop", "");
+            sendMessageToHandler("stop", Integer.toString(nTotalReadBytes));
             recorder.release();
             recorder = null;
         }

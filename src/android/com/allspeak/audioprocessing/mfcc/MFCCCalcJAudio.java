@@ -276,23 +276,18 @@ public class MFCCCalcJAudio {
     // CHUNK ANALYSIS 
     // =======================================================================================================
     // methods to calculate MFCC & MFFILTERS in either float or double precision
-    private int getFrames(double[] audiodata)
-    {
-        int inlen           = audiodata.length;
-        return              (1 + (int) Math.ceil((inlen-m_nWindowLength)/m_nWindowDistance));
-    }
 
-    private int getFrames(float[] audiodata)
+
+    public int getFrames(int inlen)
     {
-        int inlen           = audiodata.length;
-        return              (1 + (int) Math.ceil((inlen-m_nWindowLength)/m_nWindowDistance));
+        return (1 + (int) Math.ceil((inlen-m_nWindowLength)/m_nWindowDistance));
     }
 
     public float[][] getMFCC(float[] audiodata)
     {
         // divide the input stream in multiple frames of length nWindowLength and starting every nWindowDistance samples 
         int inlen           = audiodata.length;
-        m_nFrames           = getFrames(audiodata);
+        m_nFrames           = getFrames(inlen);
         float[][] faMFCC   = new float[m_nFrames][m_nnumberOfParameters];
         try
         {
@@ -334,7 +329,7 @@ public class MFCCCalcJAudio {
     {
         // divide the input stream in multiple frames of length nWindowLength and starting every nWindowDistance samples 
         int inlen           = audiodata.length;
-        m_nFrames           = getFrames(audiodata);
+        m_nFrames           = getFrames(inlen);
         float[][] faMFCC    = new float[m_nFrames][m_nnumberOfFilters];
         try
         {
