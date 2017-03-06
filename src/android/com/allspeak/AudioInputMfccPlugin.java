@@ -11,6 +11,8 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.os.PowerManager;
+import android.os.PowerManager.WeakLeak;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Bundle;
@@ -31,7 +33,8 @@ public class AudioInputMfccPlugin extends CordovaPlugin
     private static final String LOG_TAG         = "AudioInputMfccPlugin";
     
     private CallbackContext callbackContext     = null;
-    private CordovaInterface cordovaInterface;
+    private CordovaInterface cordovaInterface   = null;
+    private WakeLock cpuWeakLock                = null;
     
     //-----------------------------------------------------------------------------------------------
     // CAPTURE
@@ -57,7 +60,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
 
     // what to do with MFCC data
     private int nMFCCDataDest                   = MFCCParams.DATADEST_NONE;        // send back to Web Layer or not  
-    
+    private boolean bTriggerAction              = false;    // monitor nMFCCFrames2beProcessed zero-ing, when it goes to 0 and bTriggerAction=true => 
     //-----------------------------------------------------------------------------------------------
     // VAD
     
@@ -68,6 +71,8 @@ public class AudioInputMfccPlugin extends CordovaPlugin
 
         cordovaInterface = cordova;
         Log.d(LOG_TAG, "Initializing AudioInputMfccPlugin");
+        PowerManager pm     = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        cpuWeakLock         = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "cpuWeakLock");        
     }
     
     /**
@@ -126,6 +131,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
                 nCapturedBlocks         = 0;
                 nMFCCProcessedFrames    = 0;
                 nMFCCFrames2beProcessed = 0;
+                bTriggerAction          = false;
                 sendNoResult2Web();
             }
             catch (Exception e) 
@@ -261,7 +267,8 @@ public class AudioInputMfccPlugin extends CordovaPlugin
     
     public void onCaptureStop(String bytesread)
     {
-        Log.d(LOG_TAG, "StopCapture: read " + bytesread + "bytes, captured " + Integer.toString(nCapturedBlocks) + " blocks, processed " + Integer.toString(nMFCCFrames2beProcessed) + " frames");            
+//        Log.d(LOG_TAG, "StopCapture: read " + bytesread + "bytes, captured " + Integer.toString(nCapturedBlocks) + " blocks, processed " + Integer.toString(nMFCCFrames2beProcessed) + " frames");            
+        bTriggerAction  = true;
         try
         {
             JSONObject info = new JSONObject();
@@ -278,8 +285,8 @@ public class AudioInputMfccPlugin extends CordovaPlugin
     
     public void onMFCCData(float[][] params, float[][] params_1st, float[][] params_2nd, String source)
     {
-        nMFCCProcessedFrames += params.length;       
-//        Log.d(LOG_TAG, "new CEPSTRA data arrived in MainPlugin Activity: " + Integer.toString(nMFCCProcessedBlocks));      
+        onMFCCProgress(params.length);        
+        Log.d(LOG_TAG, "new CEPSTRA data arrived in MainPlugin Activity: " + Integer.toString(params.length));      
         
         // send raw data to Web Layer?
         JSONObject info = new JSONObject();
@@ -313,7 +320,14 @@ public class AudioInputMfccPlugin extends CordovaPlugin
     
     public void onMFCCProgress(int frames)
     {
-        //nMFCCFrames2beProcessed++;
+        nMFCCProcessedFrames    += frames;
+        nMFCCFrames2beProcessed -= frames;
+        Log.d(LOG_TAG, "processed frames : " + Integer.toString(nMFCCProcessedFrames) +  ", still to be processed: " + Integer.toString(nMFCCFrames2beProcessed));
+        
+        if(bTriggerAction && nMFCCFrames2beProcessed == 0)
+        {
+            Log.d(LOG_TAG, "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+        }
     }
     
     public void onMFCCError(String error)
@@ -383,17 +397,11 @@ public class AudioInputMfccPlugin extends CordovaPlugin
                     //get message type
                     Bundle b = msg.getData();
                     if(b.getString("error") != null)
-                        // is an error
-                        activity.onMFCCError(b.getString("error"));
-                    
+                        activity.onMFCCError(b.getString("error"));     // is an error
                     else
                     {
-                         if(b.getString("progress") != null)
+                        if(b.getString("progress") != null)
                             activity.onMFCCProgress(Integer.parseInt(b.getString("progress")));
-//                        JSONObject info = new JSONObject();
-//                        info.put("type", RETURN_TYPE.MFCC_PROGRESS_DATA);
-//                        info.put("progress", b.getString("progress_file"));
-//                        activity.sendUpdate2Web(info, true);                        
                     
                         if(b.getString("progress_folder") != null)
                         {
@@ -411,9 +419,6 @@ public class AudioInputMfccPlugin extends CordovaPlugin
                         }
                         if(b.getString("source") != null)
                         {
-                            if(activity.nMFCCDataDest != MFCCParams.DATADEST_ALL && activity.nMFCCDataDest != MFCCParams.DATADEST_ALL)
-                                Log.w(LOG_TAG, "should never happen !!! i receive mfcc data from the runnable but nMFCCDataDest is: " + Integer.toString(activity.nMFCCDataDest));
-
                             // are DATA 
                             String source       = b.getString("source");
                             int nframes         = b.getInt("nframes");
@@ -471,6 +476,17 @@ public class AudioInputMfccPlugin extends CordovaPlugin
     //=================================================================================================
     // ACCESSORY FUNCTIONS
     //=================================================================================================
+    private void lockCPU()
+    {
+        cpuWeakLock.acquire();       
+    }
+    
+    private void unlockCPU()
+    {
+        cpuWeakLock.release();
+    }
+    
+    
     // used to convert a 1dim array to a 2dim array
     private static float[][] deFlattenArray(float[] input, int dim1, int dim2)
     {

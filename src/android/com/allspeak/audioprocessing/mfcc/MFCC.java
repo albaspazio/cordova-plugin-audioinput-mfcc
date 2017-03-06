@@ -149,6 +149,9 @@ public class MFCC
         setOutputFile(outfile);
         getMFCC(source, executor);
     }
+    
+    // receive new data, calculate how many samples must be processed and send them to analysis. 
+    // copy the last 120 samples of these to-be-processed data plus the remaining not-to-be-processed ones to the queue array
     public int processData(float[] data, ExecutorService executor)
     {
         int nOldData        = nQueueLastIndex;
@@ -333,24 +336,24 @@ public class MFCC
                 case MFCCParams.DATADEST_JSDATAWEB:
                     //costruire json e chiamare
                     JSONObject info         = new JSONObject();
-                    info.put("type", AudioInputMfccPlugin.RETURN_TYPE.MFCC_DATA);
+                    info.put("type",        AudioInputMfccPlugin.RETURN_TYPE.MFCC_DATA);
                     info.put("data",        new JSONArray(data));
                     info.put("first_der",   new JSONArray(derivatives[0]));
                     info.put("second_der",  new JSONArray(derivatives[1]));
-                    info.put("progress", mfccParams.sOutputPath);
+                    info.put("progress",    mfccParams.sOutputPath);
                     sendUpdate2Web(info, true);
                     break;                 
             }
             //------------------------------------------------------------------
             // send progress to PLUGIN
             //------------------------------------------------------------------
-//            switch(mfccParams.nDataDest)
-//            {
-//                case MFCCParams.DATADEST_FILE:
-//                case MFCCParams.DATADEST_FILEWEB:
-//                    sendMessageToMain("progress", Integer.toString(nFrames));              
-//                    break;
-//            }             
+            switch(mfccParams.nDataDest)
+            {
+                case MFCCParams.DATADEST_FILE:
+                case MFCCParams.DATADEST_FILEWEB:
+                    sendMessageToMain("progress", Integer.toString(nFrames));              
+                    break;
+            }             
             //------------------------------------------------------------------
             // send data to PLUGIN    
             //------------------------------------------------------------------
