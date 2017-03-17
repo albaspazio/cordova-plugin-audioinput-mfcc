@@ -37,6 +37,7 @@
         <source-file src="src/android/com/allspeak/audiocapture/CFGParams.java" target-dir="src/com/allspeak/audiocapture" />
         <source-file src="src/android/com/allspeak/audioprocessing/FFT.java" target-dir="src/com/allspeak/audioprocessing" />
         <source-file src="src/android/com/allspeak/audioprocessing/WavFile.java" target-dir="src/com/allspeak/audioprocessing" />
+        <source-file src="src/android/com/allspeak/audioprocessing/mfcc/MFCCThread.java" target-dir="src/com/allspeak/audioprocessing/mfcc" />
         <source-file src="src/android/com/allspeak/audioprocessing/mfcc/MFCC.java" target-dir="src/com/allspeak/audioprocessing/mfcc" />
         <source-file src="src/android/com/allspeak/audioprocessing/mfcc/MFCCCalcJAudio.java" target-dir="src/com/allspeak/audioprocessing/mfcc" />
         <source-file src="src/android/com/allspeak/audioprocessing/mfcc/MFCCParams.java" target-dir="src/com/allspeak/audioprocessing/mfcc" />

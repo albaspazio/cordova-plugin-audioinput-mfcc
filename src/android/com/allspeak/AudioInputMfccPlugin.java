@@ -11,8 +11,10 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.content.Context;
+
 import android.os.PowerManager;
-import android.os.PowerManager.WeakLeak;
+import android.os.PowerManager.WakeLock;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Bundle;
@@ -32,6 +34,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
 {
     private static final String LOG_TAG         = "AudioInputMfccPlugin";
     
+    private Context mContext                    = null;
     private CallbackContext callbackContext     = null;
     private CordovaInterface cordovaInterface   = null;
     private WakeLock cpuWeakLock                = null;
@@ -52,7 +55,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
     //-----------------------------------------------------------------------------------------------
     // MFCC
     private final MFCCHandler mfccHandler       = new MFCCHandler(this);
-    private MFCC mfcc                           = null;        
+    private MFCCThread mfcc                     = null;        
 
     private boolean bIsCalculatingMFCC          = false;              // do not calculate any mfcc score on startCatpure
     private int nMFCCProcessedFrames            = 0;
@@ -66,13 +69,17 @@ public class AudioInputMfccPlugin extends CordovaPlugin
     
     
     //======================================================================================================================
-    public void initialize(CordovaInterface cordova, CordovaWebView webView) {
+    public void initialize(CordovaInterface cordova, CordovaWebView webView) 
+    {
         super.initialize(cordova, webView);
-
-        cordovaInterface = cordova;
+        cordovaInterface    = cordova;
         Log.d(LOG_TAG, "Initializing AudioInputMfccPlugin");
-        PowerManager pm     = (PowerManager) getSystemService(Context.POWER_SERVICE);
-        cpuWeakLock         = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "cpuWeakLock");        
+        
+        mContext            = cordovaInterface.getActivity();//.getApplicationContext();
+        
+        // set PARTIAL_WAKE_LOCK to keep on using CPU resources also when the App is in background
+        PowerManager pm     = (PowerManager) mContext.getSystemService(Context.POWER_SERVICE);
+        cpuWeakLock         = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "cpuWeakLock");       
     }
     
     /**
@@ -113,7 +120,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
                 if(!args.isNull(1))
                 {
                     MFCCParams mfccParams   = new MFCCParams(new JSONObject((String)args.get(1)));
-                    mfcc                    = new MFCC(mfccParams, mfccHandler, cordovaInterface, callbackContext);                  
+                    mfcc                    = new MFCCThread(mfccParams, cordovaInterface.getThreadPool(), mfccHandler, callbackContext);                  
                     nMFCCDataDest           = mfccParams.nDataDest;
                 }
             }
@@ -157,7 +164,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
                 if(!args.isNull(0))
                 {
                     MFCCParams mfccParams   = new MFCCParams(new JSONObject((String)args.get(0))); 
-                    mfcc                    = new MFCC(mfccParams, mfccHandler, cordovaInterface, callbackContext); 
+                    mfcc                    = new MFCCThread(mfccParams, cordovaInterface.getThreadPool(), mfccHandler, callbackContext);                  
                     nMFCCDataDest           = mfccParams.nDataDest;
                 }
                 bIsCalculatingMFCC = true;
@@ -186,11 +193,11 @@ public class AudioInputMfccPlugin extends CordovaPlugin
                 // JS interface call params:     mfcc_json_params, source;  params have been validated in the js interface
                 // should have a nDataDest > 0  web,file,both
                 MFCCParams mfccParams   = new MFCCParams(new JSONObject((String)args.get(0))); 
-                mfcc                    = new MFCC(mfccParams, mfccHandler, cordovaInterface, callbackContext);            
+                mfcc                    = new MFCCThread(mfccParams, cordovaInterface.getThreadPool(), mfccHandler, callbackContext);                  
                 nMFCCDataDest           = mfccParams.nDataDest;
                 String inputpathnoext   = args.getString(1); 
 
-                mfcc.getMFCC(inputpathnoext, cordovaInterface.getThreadPool());
+                mfcc.getMFCC(inputpathnoext);
                 sendNoResult2Web();
             }
             catch (Exception e) 
@@ -230,7 +237,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
         // calculate MFCC/MFFILTERS ??
         // 
         if(bIsCalculatingMFCC)   
-            nMFCCFrames2beProcessed += mfcc.processData(data, cordovaInterface.getThreadPool());
+            nMFCCFrames2beProcessed += mfcc.processQueueData(data);
              
         // send raw to WEB ??
         if(nCapturedDataDest == DATADEST_JS)
