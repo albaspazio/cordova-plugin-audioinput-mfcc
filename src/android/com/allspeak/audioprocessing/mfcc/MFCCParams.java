@@ -45,7 +45,9 @@ public class MFCCParams
     //derived
     public int nData2Reprocess              = 120;  // last part of the processed vector, that must be the first part of the new one.
                                                     // 15ms (25ms-10ms) => 120 samples
-            
+    
+    public MFCCParams(){}    
+    
     public MFCCParams(JSONObject init)
     {
         try

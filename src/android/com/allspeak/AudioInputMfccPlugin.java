@@ -11,8 +11,10 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.content.Context;
+import android.os.Process;
 import android.os.PowerManager;
-import android.os.PowerManager.WeakLeak;
+import android.os.PowerManager.WakeLock;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Bundle;
@@ -32,6 +34,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
 {
     private static final String LOG_TAG         = "AudioInputMfccPlugin";
     
+    private Context mContext                    = null;
     private CallbackContext callbackContext     = null;
     private CordovaInterface cordovaInterface   = null;
     private WakeLock cpuWeakLock                = null;
@@ -43,6 +46,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
 
     private boolean bIsCapturing                = false;
     private int nCapturedBlocks                 = 0;
+    private int nCapturedBytes                  = 0;
 
     // what to do with captured data
     public static final int DATADEST_NONE       = 0;        // don't send back to Web Layer
@@ -52,7 +56,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
     //-----------------------------------------------------------------------------------------------
     // MFCC
     private final MFCCHandler mfccHandler       = new MFCCHandler(this);
-    private MFCC mfcc                           = null;        
+    private MFCCHandlerThread mfcc              = null;        
 
     private boolean bIsCalculatingMFCC          = false;              // do not calculate any mfcc score on startCatpure
     private int nMFCCProcessedFrames            = 0;
@@ -68,12 +72,21 @@ public class AudioInputMfccPlugin extends CordovaPlugin
     //======================================================================================================================
     public void initialize(CordovaInterface cordova, CordovaWebView webView) {
         super.initialize(cordova, webView);
-
-        cordovaInterface = cordova;
         Log.d(LOG_TAG, "Initializing AudioInputMfccPlugin");
-        PowerManager pm     = (PowerManager) getSystemService(Context.POWER_SERVICE);
-        cpuWeakLock         = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "cpuWeakLock");        
+
+        cordovaInterface        = cordova;
+        mContext                = cordovaInterface.getActivity();//.getApplicationContext();
+        
+        // set PARTIAL_WAKE_LOCK to keep on using CPU resources also when the App is in background
+        PowerManager pm         = (PowerManager) mContext.getSystemService(Context.POWER_SERVICE);
+        cpuWeakLock             = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "cpuWeakLock");    
+        
+        //init the HandlerThread
+        MFCCParams mfccParams   = new MFCCParams();
+        mfcc                    = new MFCCHandlerThread(mfccParams, mfccHandler, null, "name", Process.THREAD_PRIORITY_MORE_FAVORABLE);
+        mfcc.start();        
     }
+    //======================================================================================================================
     
     /**
      * @param action
@@ -113,7 +126,15 @@ public class AudioInputMfccPlugin extends CordovaPlugin
                 if(!args.isNull(1))
                 {
                     MFCCParams mfccParams   = new MFCCParams(new JSONObject((String)args.get(1)));
-                    mfcc                    = new MFCC(mfccParams, mfccHandler, cordovaInterface, callbackContext);                  
+                    mfcc.setParams(mfccParams);
+                    mfcc.setWlCb(callbackContext);
+//                    if(mfcc == null)
+//                    {
+//                        mfcc = new MFCCHandlerThread(mfccParams, mfccHandler, callbackContext, "name", Process.THREAD_PRIORITY_BACKGROUND);
+//                        mfcc.start();
+//                    }
+//                    else
+                        
                     nMFCCDataDest           = mfccParams.nDataDest;
                 }
             }
@@ -129,6 +150,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
             {
                 aicCapture.start();  //asynchronous call, cannot return anything since a permission request may be called 
                 nCapturedBlocks         = 0;
+                nCapturedBytes          = 0;
                 nMFCCProcessedFrames    = 0;
                 nMFCCFrames2beProcessed = 0;
                 bTriggerAction          = false;
@@ -157,7 +179,10 @@ public class AudioInputMfccPlugin extends CordovaPlugin
                 if(!args.isNull(0))
                 {
                     MFCCParams mfccParams   = new MFCCParams(new JSONObject((String)args.get(0))); 
-                    mfcc                    = new MFCC(mfccParams, mfccHandler, cordovaInterface, callbackContext); 
+                    mfcc.setParams(mfccParams);
+                    mfcc.setWlCb(callbackContext);
+                    
+//                    mfcc                    = new MFCC(mfccParams, mfccHandler, cordovaInterface, callbackContext); 
                     nMFCCDataDest           = mfccParams.nDataDest;
                 }
                 bIsCalculatingMFCC = true;
@@ -185,12 +210,14 @@ public class AudioInputMfccPlugin extends CordovaPlugin
             {               
                 // JS interface call params:     mfcc_json_params, source;  params have been validated in the js interface
                 // should have a nDataDest > 0  web,file,both
-                MFCCParams mfccParams   = new MFCCParams(new JSONObject((String)args.get(0))); 
-                mfcc                    = new MFCC(mfccParams, mfccHandler, cordovaInterface, callbackContext);            
+                MFCCParams mfccParams   = new MFCCParams(new JSONObject((String)args.get(0)));
+                mfcc.setParams(mfccParams);
+                mfcc.setWlCb(callbackContext);                
+//                mfcc                    = new MFCC(mfccParams, mfccHandler, cordovaInterface, callbackContext);            
                 nMFCCDataDest           = mfccParams.nDataDest;
                 String inputpathnoext   = args.getString(1); 
 
-                mfcc.getMFCC(inputpathnoext, cordovaInterface.getThreadPool());
+                mfcc.getMFCC(inputpathnoext);
                 sendNoResult2Web();
             }
             catch (Exception e) 
@@ -215,7 +242,6 @@ public class AudioInputMfccPlugin extends CordovaPlugin
         if(aicCapture != null)  aicCapture.stop();
     }
     
-
     //=========================================================================================
     // callback from handlers => WEB LAYER
     //=========================================================================================
@@ -224,13 +250,12 @@ public class AudioInputMfccPlugin extends CordovaPlugin
     // - return raw data to web layer if selected
     public void onCaptureData(float[] data)
     {
-        nCapturedBlocks++;
-//        Log.d(LOG_TAG, "new raw data arrived in MainPlugin Activity: " + Integer.toString(nCapturedBlocks));
+        nCapturedBlocks++;  
+        nCapturedBytes += data.length;
 
-        // calculate MFCC/MFFILTERS ??
-        // 
-        if(bIsCalculatingMFCC)   
-            nMFCCFrames2beProcessed += mfcc.processData(data, cordovaInterface.getThreadPool());
+//        Log.d(LOG_TAG, "new raw data arrived in MainPlugin Activity: " + Integer.toString(nCapturedBlocks));
+        
+        if(bIsCalculatingMFCC) mfcc.getQueueMFCC(data); // calculate MFCC/MFFILTERS ??
              
         // send raw to WEB ??
         if(nCapturedDataDest == DATADEST_JS)
@@ -238,14 +263,15 @@ public class AudioInputMfccPlugin extends CordovaPlugin
             try 
             {
                 // send raw data to Web Layer
-                String decoded = Arrays.toString(data);
+                String decoded  = Arrays.toString(data);
                 JSONObject info = new JSONObject();
 
                 info.put("type", RETURN_TYPE.CAPTURE_DATA);
                 info.put("data", decoded);
                 sendUpdate2Web(info, true);
             }
-            catch (JSONException e) {
+            catch (JSONException e) 
+            {
                 e.printStackTrace();                  
                 Log.e(LOG_TAG, e.getMessage(), e);
                 onCaptureError(e.getMessage());
@@ -282,11 +308,17 @@ public class AudioInputMfccPlugin extends CordovaPlugin
         catch (JSONException e){e.printStackTrace();}
     }
 
+    //------------------------------------------------------------------------------------------------
+    // called by MFCC class when sending frames to be processed
+    public void onMFCCStartProcessing(int nframes)
+    {
+        Log.d(LOG_TAG, "start to process: " + Integer.toString(nframes));
+        nMFCCFrames2beProcessed += nframes;
+    }
     
     public void onMFCCData(float[][] params, float[][] params_1st, float[][] params_2nd, String source)
     {
         onMFCCProgress(params.length);        
-        Log.d(LOG_TAG, "new CEPSTRA data arrived in MainPlugin Activity: " + Integer.toString(params.length));      
         
         // send raw data to Web Layer?
         JSONObject info = new JSONObject();
@@ -326,7 +358,8 @@ public class AudioInputMfccPlugin extends CordovaPlugin
         
         if(bTriggerAction && nMFCCFrames2beProcessed == 0)
         {
-            Log.d(LOG_TAG, "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+            Log.d(LOG_TAG, "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+            bTriggerAction = false;
         }
     }
     
@@ -379,9 +412,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
     private static class MFCCHandler extends Handler {
         private final WeakReference<AudioInputMfccPlugin> mActivity;
 
-        public MFCCHandler(AudioInputMfccPlugin activity) {
-            mActivity = new WeakReference<AudioInputMfccPlugin>(activity);
-        }
+        public MFCCHandler(AudioInputMfccPlugin activity) { mActivity = new WeakReference<AudioInputMfccPlugin>(activity);  }
 
         // progress_file & progress_folder are directly sent to WEB
         // error & data are sent to activity methods
@@ -394,41 +425,49 @@ public class AudioInputMfccPlugin extends CordovaPlugin
                 //                    data  => plugin onMFCCData
                 try 
                 {
-                    //get message type
-                    Bundle b = msg.getData();
-                    if(b.getString("error") != null)
-                        activity.onMFCCError(b.getString("error"));     // is an error
-                    else
+                    JSONObject info = new JSONObject();
+                    Bundle b        = msg.getData();
+                    switch(msg.what) //get message type
                     {
-                        if(b.getString("progress") != null)
+                        case MFCC.STATUS_DATAPROGRESS:
+                            
                             activity.onMFCCProgress(Integer.parseInt(b.getString("progress")));
-                    
-                        if(b.getString("progress_folder") != null)
-                        {
-                            JSONObject info = new JSONObject();
-                            info.put("type", RETURN_TYPE.MFCC_PROGRESS_FOLDER);
-                            info.put("progress", b.getString("progress_folder"));
-                            activity.sendUpdate2Web(info, true);
-                        }
-                        if(b.getString("progress_file") != null)
-                        {
-                            JSONObject info = new JSONObject();
-                            info.put("type", RETURN_TYPE.MFCC_PROGRESS_FILE);
-                            info.put("progress", b.getString("progress_file"));
-                            activity.sendUpdate2Web(info, true);
-                        }
-                        if(b.getString("source") != null)
-                        {
-                            // are DATA 
+                            break;
+                            
+                        case MFCC.STATUS_NEWDATA:
+                            
                             String source       = b.getString("source");
                             int nframes         = b.getInt("nframes");
                             int nparams         = b.getInt("nparams");
                             float[][] res       = deFlattenArray(b.getFloatArray("data"), nframes, nparams);
                             float[][] res_1st   = deFlattenArray(b.getFloatArray("data_1st"), nframes, nparams);
                             float[][] res_2nd   = deFlattenArray(b.getFloatArray("data_2nd"), nframes, nparams);
-
-                            activity.onMFCCData(res, res_1st, res_2nd, source);
-                        }
+                            activity.onMFCCData(res, res_1st, res_2nd, source);                            
+                            break;
+                            
+                        case MFCC.STATUS_PROGRESS_FILE:
+                            
+                            info.put("type", RETURN_TYPE.MFCC_PROGRESS_FILE);
+                            info.put("progress", b.getString("progress_file"));
+                            activity.sendUpdate2Web(info, true);                            
+                            break;
+                            
+                        case MFCC.STATUS_PROGRESS_FOLDER:
+                            
+                            info.put("type", RETURN_TYPE.MFCC_PROGRESS_FOLDER);
+                            info.put("progress", b.getString("progress_folder"));
+                            activity.sendUpdate2Web(info, true);                        
+                            break;
+                            
+                        case MFCC.STATUS_ERROR:
+                            
+                            activity.onMFCCError(b.getString("error"));     // is an error
+                            break;
+                            
+                        case MFCC.STATUS_PROCESSINGSTARTED:
+                            
+                            activity.onMFCCStartProcessing((int)msg.obj);                            
+                            break;
                     }
                 }
                 catch (JSONException e) 

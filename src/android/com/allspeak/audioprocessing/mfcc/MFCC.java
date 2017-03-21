@@ -9,9 +9,6 @@ import android.os.Message;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.PluginResult;
-import org.apache.cordova.CordovaInterface;
-
-import java.util.concurrent.ExecutorService;
 
 import org.json.JSONObject;
 import org.json.JSONArray;
@@ -25,7 +22,7 @@ import android.os.Environment;
 import android.util.Log;
 import java.io.FilenameFilter;
 
-
+import android.os.ResultReceiver;
 
 import com.allspeak.AudioInputMfccPlugin;
 import com.allspeak.audioprocessing.WavFile;
@@ -47,13 +44,35 @@ public class MFCC
 {
     private static final String TAG = "MFCC";
     
+    private static final int MODE_THREAD                = 0;
+    private static final int MODE_INTENTSERVICE         = 1;
+    private int nMode                                   = MODE_THREAD;
+    
+    public static final int STATUS_PROCESSINGSTARTED    = 0;
+    public static final int STATUS_DATAPROGRESS         = 1;
+    public static final int STATUS_NEWDATA              = 2;    
+    public static final int STATUS_PROGRESS_FILE        = 3;    
+    public static final int STATUS_PROGRESS_FOLDER      = 4;    
+    public static final int STATUS_ERROR                = 10; 
+    
     private MFCCParams mfccParams               = null;                                   // MFCC parameters
     private MFCCCalcJAudio mfcc                 = null; 
     
+    // properties to send results back to Plugin Main
+    private ResultReceiver mReceiver                = null;     // IntentService
+    private Handler mHandler                        = null;     // Thread
     
-    private String sInputPathNoExt          = "";
+    // properties to send results back to Web Layer
+    private CallbackContext callbackContext = null;
+//    private CordovaInterface cordovaInterface;    
+    
+    private Message message;
+    private Bundle messageBundle;  
+
 //    private TrackPerformance tp;//    private int[][] aiElapsedTimes;
-    
+
+    private String sSource; // used as runnable param
+
     private int nFrames                     = 0;        // number of frames used to segment the input audio
     private int nScores                     = 0;        // either nNumberofFilters or nNumberOfMFCCParameters according to requeste measure
     
@@ -73,23 +92,36 @@ public class MFCC
     private int[] indicesout;
     private int nDerivDenom;
     
-    // manage MFCC queue
-    private float[] faMFCCQueue                 = null;
-    private int nQueueLastIndex                 = 0;    
-    private float[] faData2Process;   // contains (nframes, numparams) calculated FilterBanks
-    
-    private CallbackContext callbackContext = null;
-    private CordovaInterface cordovaInterface;    
-    private Handler handler;
-    private Message message;
-    private Bundle messageBundle = new Bundle();
-    
     //================================================================================================================
-    public MFCC(MFCCParams params, Handler handl)
+    // CONSTRUCTORS
+    //================================================================================================================
+    // to be used with IntentService implementation
+    public MFCC(MFCCParams params, ResultReceiver receiver)
+    {
+        mReceiver   = receiver;
+        nMode       = MODE_INTENTSERVICE;
+        setParams(params);
+    }
+    
+    // to be used with Thread implementation
+    public MFCC(MFCCParams params, Handler handler)
+    {
+        mHandler    = handler;
+        nMode       = MODE_THREAD;
+        setParams(params);       
+    }
+    
+    // to be used with Thread implementation,  may also send results directly to Web Layer
+    public MFCC(MFCCParams params, Handler handl, CallbackContext wlcallback)
+    {
+        this(params, handl);
+        callbackContext     = wlcallback;
+    }   
+    
+    public void setParams(MFCCParams params)
     {
         // JS interface call params:     mfcc_json_params, source, datatype, origintype, write, [outputpath_noext];  params have been validated in the js interface
         mfccParams      = params; 
-        handler         = handl;
         nScores         = (mfccParams.nDataType == MFCCParams.DATATYPE_MFCC ? mfccParams.nNumberOfMFCCParameters : mfccParams.nNumberofFilters);
         sOutputPrecision= (mfccParams.nDataType == MFCCParams.DATATYPE_MFCC ? sOutputMFCCPrecision : sOutputFiltersPrecision);
         
@@ -107,84 +139,17 @@ public class MFCC
                                             mfccParams.nWindowLength); 
         
         initDerivativeIndices(mfccParams.nDeltaWindow, nScores);  
-        int nBufferSize = 1024;  // TODO: provvisorio
-        faMFCCQueue = new float[nBufferSize*2];
-    }
-    
-    public MFCC(MFCCParams params, Handler handl, CordovaInterface cordova, CallbackContext wlcallback)
-    {
-        this(params, handl);
-        cordovaInterface    = cordova;
-        callbackContext     = wlcallback;
     }   
     
-    // GET FROM folder or a file
-    public void getMFCC(String source, ExecutorService executor)
+    public void setWlCb(CallbackContext wlcallback)
     {
-        sInputPathNoExt = source;
-        
-        switch(mfccParams.nDataOrig)
-        {
-            case MFCCParams.DATAORIGIN_FILE:
-
-                executor.execute(new Runnable() {
-                    @Override
-                    public void run(){ processFile(sInputPathNoExt); }
-                });                        
-                break;
-
-            case MFCCParams.DATAORIGIN_FOLDER:
-
-                executor.execute(new Runnable() {
-                    @Override
-                    public void run(){ processFolder(sInputPathNoExt); }
-                });
-                break;
-        }        
-    }
-    
-    // GET FROM data array (a real-time stream)
-    public void getMFCC(float[] source, String outfile, ExecutorService executor)
-    {
-        setOutputFile(outfile);
-        getMFCC(source, executor);
-    }
-    
-    // receive new data, calculate how many samples must be processed and send them to analysis. 
-    // copy the last 120 samples of these to-be-processed data plus the remaining not-to-be-processed ones to the queue array
-    public int processData(float[] data, ExecutorService executor)
-    {
-        int nOldData        = nQueueLastIndex;
-        int nNewData        = data.length;
-        int tot             = nQueueLastIndex + nNewData;
-        int nMFCCWindow     = getOptimalVectorLength(tot);
-        int nData2take      = nMFCCWindow - nQueueLastIndex;             
-        int nData2Store     = data.length - nData2take + mfccParams.nData2Reprocess; 
-
-        // assumes that first [0-(nQueueLastIndex-1)] elements of faMFCCQueue contains the still not processed data 
-        float[] mfccvector  = new float[nMFCCWindow]; 
-
-        // writes the to be processed vector
-        System.arraycopy(faMFCCQueue, 0, mfccvector, 0, nOldData);  // whole faMFCCQueue => mfccvector, then, 
-        System.arraycopy(data, 0, mfccvector, nOldData, nData2take);// first nData2Take of data => mfccvector  
-
-        // update queue vector
-        // take from id= (nData2take - mfccParams.nData2Reprocess) of data => beginning of queue        
-        System.arraycopy(data, nData2take - mfccParams.nData2Reprocess, faMFCCQueue, 0, nData2Store); 
-        nQueueLastIndex = nData2Store;  
-        
-        getMFCC(mfccvector, cordovaInterface.getThreadPool());
-        return getFrames(nMFCCWindow);
-    }
-    public void getMFCC(float[] source, ExecutorService executor)
-    {
-        faData2Process  = source;        
-        executor.execute(new Runnable() {
-            @Override
-            public void run(){ processRawData(faData2Process); }
-        });
-    }
-    
+        callbackContext     = wlcallback;
+    }    
+    //================================================================================================================
+    //================================================================================================================
+    //================================================================================================================
+    //================================================================================================================
+    //================================================================================================================
     public void setOutputFile(String output_mfcc_path)
     {
         mfccParams.sOutputPath  = output_mfcc_path;
@@ -193,8 +158,7 @@ public class MFCC
     //=================================================================================================================
     // PRIVATE
     //=================================================================================================================
-    
-    private void processRawData(float[] data, int dataType, int dataDest, String output_path)
+    public void processRawData(float[] data, int dataType, int dataDest, String output_path)
     {
         mfccParams.nDataType    = dataType;  
         mfccParams.nDataDest    = dataDest;    
@@ -203,7 +167,7 @@ public class MFCC
     }
 
     // get score, get derivatives => exportData
-    private synchronized void processRawData(float[] data)
+    public synchronized void processRawData(float[] data)
     {
         try
         {
@@ -236,12 +200,12 @@ public class MFCC
         {
             e.printStackTrace();
             Log.e(TAG, "processFile" + ": Error: " + e.toString());
-            sendMessageToMain("error", e.toString());
+            sendMessageToMain(STATUS_ERROR, "error", e.toString());
         }        
     }            
 
     // read wav(String) => processRawData(float[])
-    private void processFile(String input_file_noext) 
+    public void processFile(String input_file_noext) 
     {
         try
         {
@@ -253,18 +217,18 @@ public class MFCC
 //            tp.addTimepoint(1);
             processRawData(data);
 //            tp.addTimepoint(2);   
-            sendMessageToMain("progress_file", mfccParams.sOutputPath);
+            sendMessageToMain(STATUS_PROGRESS_FILE, "progress_file", mfccParams.sOutputPath);
          }
         catch(Exception e)
         {
             e.printStackTrace();
             Log.e(TAG, "processFile" + ": Error: " + e.toString());
-            sendMessageToMain("error", e.toString());
+            sendMessageToMain(STATUS_ERROR, "error", e.toString());
         }        
     }
     
     // processFolder(String) => for files in... processFile(String) => processRawData(float[])
-    private void processFolder(String input_folderpath) 
+    public void processFolder(String input_folderpath) 
     {
 //        TrackPerformance tp_folder      = new TrackPerformance(1); // I want to monitor just to total time
         File directory                  = new File(Environment.getExternalStorageDirectory().toString() + "/" + input_folderpath);
@@ -291,9 +255,10 @@ public class MFCC
         {
             e.printStackTrace();
             Log.e(TAG, "processFolder" + ": Error: " + e.toString());
-            sendMessageToMain("error", e.toString());            
+            sendMessageToMain(STATUS_ERROR, "error", e.toString());
         }    
     }
+    
     //======================================================================================
     // E X P O R T
     //======================================================================================
@@ -351,7 +316,7 @@ public class MFCC
             {
                 case MFCCParams.DATADEST_FILE:
                 case MFCCParams.DATADEST_FILEWEB:
-                    sendMessageToMain("progress", Integer.toString(nFrames));              
+                    sendMessageToMain(STATUS_DATAPROGRESS, "progress", Integer.toString(nFrames));              
                     break;
             }             
             //------------------------------------------------------------------
@@ -363,7 +328,7 @@ public class MFCC
                 case MFCCParams.DATADEST_JSPROGRESS:            
                 case MFCCParams.DATADEST_JSDATA:            
                 case MFCCParams.DATADEST_ALL:            
-                    sendDataToMain(data, derivatives);  
+                    sendDataToMain(STATUS_NEWDATA, data, derivatives);  
             }
             //------------------------------------------------------------------
 //            else{ int[] elapsed = tp.endTracking();                res_jsonarray.put(1, new JSONArray(elapsed)); }
@@ -372,7 +337,7 @@ public class MFCC
         {
             e.printStackTrace();
             Log.e(TAG, "exportData" + ": Error: " + e.toString());
-            sendMessageToMain("error", e.toString());
+            sendMessageToMain(STATUS_ERROR, "error", e.toString());
         }
     }    
     
@@ -404,7 +369,7 @@ public class MFCC
             }
             catch(Exception e)
             {
-                sendMessageToMain("error", e.toString());
+                sendMessageToMain(STATUS_ERROR, "error", e.toString());
             }
         }  
         return res;
@@ -424,7 +389,7 @@ public class MFCC
             }
             catch(Exception e)
             {
-                sendMessageToMain("error", e.toString());
+                sendMessageToMain(STATUS_ERROR, "error", e.toString());
             }            
         }
         return res;
@@ -446,46 +411,7 @@ public class MFCC
         
         return res1 && res2 && res3;
     }
-    //======================================================================================    
-    // NOTIFICATIONS TO PLUGIN MAIN or WEBLayer
-    //======================================================================================    
-    private void sendMessageToMain(String field, String info)
-    {
-        message = handler.obtainMessage();
-        messageBundle.putString(field, info);
-        message.setData(messageBundle);
-        handler.sendMessage(message);        
-    }    
     
-    private void sendDataToMain(float[][] mfcc_data, float[][][] derivatives)
-    {
-        message             = handler.obtainMessage();
-        float[] mfcc        = flatten2DimArray(mfcc_data);
-        float[] mfcc_1st    = flatten2DimArray(derivatives[0]);
-        float[] mfcc_2nd    = flatten2DimArray(derivatives[1]);
-        
-        messageBundle.putFloatArray("data",     mfcc);
-        messageBundle.putFloatArray("data_1st", mfcc_1st);
-        messageBundle.putFloatArray("data_2nd", mfcc_2nd);
-        messageBundle.putInt("nframes", nFrames);
-        messageBundle.putInt("nparams", nScores);
-        messageBundle.putString("source", mfccParams.sOutputPath);
-        message.setData(messageBundle);
-        handler.sendMessage(message);        
-    }      
-    
-    /**
-     * Create a new plugin result and send it back to JavaScript
-     */
-    public void sendUpdate2Web(JSONObject info, boolean keepCallback) 
-    {
-        if (callbackContext != null) 
-        {
-            PluginResult result = new PluginResult(PluginResult.Status.OK, info);
-            result.setKeepCallback(keepCallback);
-            callbackContext.sendPluginResult(result);
-        }
-    }    
     //======================================================================================    
     // ACCESSORY
     //======================================================================================    
@@ -646,6 +572,7 @@ public class MFCC
         return res;
     }
     
+    // returns the number of frames you can divide a vector into
     public int getFrames(int inlen)
     {
         return mfcc.getFrames(inlen);
@@ -658,6 +585,77 @@ public class MFCC
         int nframes = (1 + (int) Math.floor((inlen-mfccParams.nWindowLength)/mfccParams.nWindowDistance));
         return  (mfccParams.nWindowLength + mfccParams.nWindowDistance*(nframes-1));
     }
+    
+    public static int getOptimalVectorLength(int inlen, int wlength, int wdist)
+    {
+        int nframes = (1 + (int) Math.floor((inlen-wlength)/wdist));
+        return  (wlength + wdist*(nframes-1));
+    }
+    
+    //======================================================================================    
+    // NOTIFICATIONS TO PLUGIN MAIN or WEBLayer
+    //======================================================================================    
+    private void sendMessageToMain(int action_code, String field, String info)
+    {
+        messageBundle = new Bundle();
+        messageBundle.putString(field, info);
+
+        switch(nMode)
+        {
+            case MODE_INTENTSERVICE:
+                mReceiver.send(action_code, messageBundle);        
+                break;
+                
+            case MODE_THREAD:
+                message         = mHandler.obtainMessage();
+                message.what    = action_code;
+                message.setData(messageBundle);
+                mHandler.sendMessage(message);             
+                break;
+        }
+    }    
+    
+    private void sendDataToMain(int action_code, float[][] mfcc_data, float[][][] derivatives)
+    {
+        float[] mfcc        = flatten2DimArray(mfcc_data);
+        float[] mfcc_1st    = flatten2DimArray(derivatives[0]);
+        float[] mfcc_2nd    = flatten2DimArray(derivatives[1]);
+        
+        messageBundle = new Bundle();        
+        messageBundle.putFloatArray("data",     mfcc);
+        messageBundle.putFloatArray("data_1st", mfcc_1st);
+        messageBundle.putFloatArray("data_2nd", mfcc_2nd);
+        messageBundle.putInt("nframes", nFrames);
+        messageBundle.putInt("nparams", nScores);
+        messageBundle.putString("source", mfccParams.sOutputPath);
+        
+        switch(nMode)
+        {
+            case MODE_INTENTSERVICE:
+                mReceiver.send(action_code, messageBundle);        
+                break;
+                
+            case MODE_THREAD:
+                message         = mHandler.obtainMessage();
+                message.what    = action_code;
+                message.setData(messageBundle);
+                mHandler.sendMessage(message);             
+                break;
+        }
+    }       
+    
+    /**
+     * Create a new plugin result and send it back to JavaScript
+     */
+    public void sendUpdate2Web(JSONObject info, boolean keepCallback) 
+    {
+        if (callbackContext != null) 
+        {
+            PluginResult result = new PluginResult(PluginResult.Status.OK, info);
+            result.setKeepCallback(keepCallback);
+            callbackContext.sendPluginResult(result);
+        }
+    }    
     //======================================================================================    
 }
 
