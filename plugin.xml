@@ -6,7 +6,7 @@
 
     <name>Audio Capture MFCC</name>
     <description>This cordova plugin enables audio capture from the device microphone, by in (near) real-time forwarding raw audio data to the web layer of your web application. Additionally may calculate and export the Mel Based coefficients</description>
-	<author>Alberto Inuggu</author>
+	<author>Alberto Inuggi</author>
 	<license>MIT</license>
     <keywords>cordova,phonegap,media,microphone,mic,input,audio,waapi,audionode,web,audio,api,audionode,capture,ios,android</keywords>
     <repo>https://gitlab.iit.it/AllSpeak/cordova-plugin-audioinput-mfcc.git</repo>

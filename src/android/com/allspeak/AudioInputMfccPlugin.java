@@ -51,7 +51,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
     // what to do with captured data
     public static final int DATADEST_NONE       = 0;        // don't send back to Web Layer
     public static final int DATADEST_JS         = 1;        // send back to Web Layer 
-    private int nCapturedDataDest               = DATADEST_JS;
+    private int nCapturedDataDest               = DATADEST_NONE;
     
     //-----------------------------------------------------------------------------------------------
     // MFCC

@@ -55,6 +55,11 @@ audioinput.ENUM.capture.AUDIOSOURCE_TYPE = {
     VOICE_RECOGNITION   : 6
 };
 
+audioinput.ENUM.capture.DATADEST={
+    NONE        : 0,
+    JSDATA      : 1
+};
+
 // Default values
 audioinput.ENUM.capture.DEFAULT = {
     SAMPLERATE              : audioinput.ENUM.capture.SAMPLERATE.TELEPHONE_8000Hz,
@@ -67,7 +72,8 @@ audioinput.ENUM.capture.DEFAULT = {
     CONCATENATE_MAX_CHUNKS  : 10,
     AUDIOSOURCE_TYPE        : audioinput.ENUM.capture.AUDIOSOURCE_TYPE.DEFAULT,
     START_MFCC              : false,
-    START_VAD               : false
+    START_VAD               : false,
+    DATA_DEST               : audioinput.ENUM.capture.DATADEST.JSDATA
 };
 
 audioinput.ENUM.mfcc.DATATYPE={
@@ -147,6 +153,7 @@ audioinput.checkCaptureParams = function(capture_params)
     audioinput.capture.params.bStreamToWebAudio         = capture_params.bStreamToWebAudio      || audioinput.ENUM.capture.DEFAULT.STREAM_TO_WEBAUDIO;
     audioinput.capture.params.bStartMFCC                = capture_params.bStartMFCC             || audioinput.ENUM.capture.DEFAULT.START_MFCC;
     audioinput.capture.params.bStartVAD                 = capture_params.bStartVAD              || audioinput.ENUM.capture.DEFAULT.START_VAD;
+    audioinput.capture.params.nDataDest                 = capture_params.nDataDest              || audioinput.ENUM.capture.DEFAULT.DATA_DEST;
 
     if (audioinput.capture.params.nChannels < 1 && audioinput.capture.params.nChannels > 2) {
         throw "Invalid number of channels (" + audioinput.capture.params.nChannels + "). Only mono (1) and stereo (2) is" +" supported.";
@@ -184,6 +191,9 @@ audioinput.checkCaptureParams = function(capture_params)
 audioinput.start = function (captureCfg, mfccCfg) {
     if (!audioinput._capturing) 
     {
+        if(captureCfg == null)  captureCfg = {};
+        if(mfccCfg == null)     mfccCfg = {};
+        
         // overwrite default params with exogenous ones
         var json_capture_params     = audioinput.checkCaptureParams(captureCfg);
         var json_mfcc_params        = audioinput.checkMfccParams(mfccCfg);
@@ -335,51 +345,9 @@ audioinput._pluginError = function (e) {
     cordova.fireWindowEvent("pluginError", {message: e});
 };
 
-/**
- * Callback for MFCC calculation
- *
- * @param {Object} mfccData     
- */
-//audioinput.onMFCCSuccess = function (mfccData) {
-//    audioinput.success(mfccData);
-//};
-//
-//audioinput.onMFCCError = function (e) {
-//    audioinput.error(e);
-//};
-
 //==================================================================================================================
 // INTERNAL
 //==================================================================================================================
-/**
- * Connect the audio node
- *
- * @param audioNode
- */
-audioinput.connect = function (audioNode) {
-    if (audioinput._micGainNode) {
-        audioinput.disconnect();
-        audioinput._micGainNode.connect(audioNode);
-    }
-};
-
-/**
- * Disconnect the audio node
- */
-audioinput.disconnect = function () {
-    if (audioinput._micGainNode) {
-        audioinput._micGainNode.disconnect();
-    }
-};
-
-/**
- * Returns the internally created Web Audio Context (if any exists)
- *
- * @returns {*}
- */
-audioinput.getAudioContext = function () {
-    return audioinput._audioContext;
-};
 
 /**
  *
@@ -411,7 +379,7 @@ audioinput._webAudioAPISupported = false;
 
 
 /**
- * Normalize audio input
+ * Normalize audio input...presently is done in the JAVA code
  *
  * @param {Object} pcmData
  * @private
@@ -521,10 +489,14 @@ audioinput._initWebAudio = function (audioCtxFromCfg) {
             audioinput._webAudioAPISupported = true;
         }
 
-        // Create a gain node for volume control
-        if (!audioinput._micGainNode) {
-            audioinput._micGainNode = audioinput._audioContext.createGain();
-        }
+        audioinput.disconnect();
+        audioinput._micGainNode = audioinput._audioContext.createGain();
+        audioinput._micGainNode.connect(audioinput._audioContext.destination);
+        
+//        // Create a gain node for volume control
+//        if (!audioinput._micGainNode) {
+//            audioinput._micGainNode = audioinput._audioContext.createGain();
+//        }
 
         return true;
     }
@@ -532,6 +504,47 @@ audioinput._initWebAudio = function (audioCtxFromCfg) {
         audioinput._webAudioAPISupported = false;
         return false;
     }
+};
+
+/**
+ * Connect the audio node
+ *
+ * @param audioNode
+ */
+audioinput.connect = function (audioNode) {
+    if (audioinput._micGainNode) {
+        audioinput.disconnect();
+        audioinput._micGainNode.connect(audioNode);
+    }
+};
+
+/**
+ * Disconnect the audio node
+ */
+audioinput.disconnect = function () {
+    if (audioinput._micGainNode) 
+    {
+        audioinput._micGainNode.disconnect();
+        audioinput._micGainNode = null;
+    }
+};
+
+/**
+ * Returns the internally created Web Audio Context (if any exists)
+ *
+ * @returns {*}
+ */
+audioinput.getAudioContext = function () {
+    return audioinput._audioContext;
+};
+
+/**
+ * Returns the internally created _micGainNode (if any exists)
+ *
+ * @returns {*}
+ */
+audioinput.getMicGainNode = function () {
+    return audioinput._micGainNode;
 };
 
 /**
