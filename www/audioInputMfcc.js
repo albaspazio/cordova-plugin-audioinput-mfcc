@@ -218,6 +218,19 @@ audioinput.start = function (captureCfg, mfccCfg) {
         throw "Already capturing!";
     }
 };
+audioinput.startMicPlayback = function (captureCfg) 
+{
+    if (!audioinput._capturing) 
+    {
+        if(captureCfg == null)  captureCfg = {};
+        var json_capture_params     = audioinput.checkCaptureParams(captureCfg);  // overwrite default params with exogenous ones
+        exec(audioinput._pluginEvent, audioinput._pluginError, audioinput.pluginName, "startMicPlayback", [json_capture_params]);
+        audioinput._capturing = true;        
+    }
+    else {
+        throw "Already capturing!";
+    }
+};
 
 /**
  * Stop capturing audio
@@ -225,7 +238,6 @@ audioinput.start = function (captureCfg, mfccCfg) {
 audioinput.stop = function () {
     if (audioinput._capturing) {
         exec(audioinput._pluginEvent, audioinput._pluginError, audioinput.pluginName, "stopCapture", []);
-        audioinput._capturing = false;    
     }
 
     if (audioinput.capture.params.bStreamToWebAudio) {
@@ -309,6 +321,7 @@ audioinput._pluginEvent = function (data) {
             case audioinput.ENUM.RETURN.CAPTURE_STOP:
                 console.log("audioInputMfcc._stopaudioInputEvent: captured " + parseInt(data.bytesread) + "bytes, " + parseInt(data.datacaptured)*12 + " time windows, dataprocessed: " + parseInt(data.dataprocessed)*12);
                 cordova.fireWindowEvent("capturestopped", {data: data});
+                audioinput._capturing = false;                   
                 break;
                 
             case audioinput.ENUM.RETURN.MFCC_DATA:

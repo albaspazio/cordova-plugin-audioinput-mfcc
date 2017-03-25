@@ -6,11 +6,13 @@ import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.CordovaWebView;
 import org.apache.cordova.PluginResult;
 import org.apache.cordova.PermissionHelper;
+import android.media.AudioManager;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.content.Intent;
 import android.content.Context;
 import android.os.Process;
 import android.os.PowerManager;
@@ -54,6 +56,10 @@ public class AudioInputMfccPlugin extends CordovaPlugin
     private int nCapturedDataDest               = DATADEST_NONE;
     
     //-----------------------------------------------------------------------------------------------
+    // PLAYBACK
+    private AudioManager mAudioManager          = null;
+    
+    //-----------------------------------------------------------------------------------------------
     // MFCC
     private final MFCCHandler mfccHandler       = new MFCCHandler(this);
     private MFCCHandlerThread mfcc              = null;        
@@ -84,7 +90,9 @@ public class AudioInputMfccPlugin extends CordovaPlugin
         //init the HandlerThread
         MFCCParams mfccParams   = new MFCCParams();
         mfcc                    = new MFCCHandlerThread(mfccParams, mfccHandler, null, "name", Process.THREAD_PRIORITY_MORE_FAVORABLE);
-        mfcc.start();        
+        mfcc.start();      
+        
+        mAudioManager           = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
     }
     //======================================================================================================================
     
@@ -108,7 +116,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
             if(aicCapture != null)
                 if(aicCapture.isCapturing())
                 {
-                    callbackContext.error( "AudioInputMfccPlugin : plugin is already capturing.");
+                    _callbackContext.error( "AudioInputMfccPlugin : plugin is already capturing.");
                     return true;
                 }
             
@@ -126,16 +134,9 @@ public class AudioInputMfccPlugin extends CordovaPlugin
                 if(!args.isNull(1))
                 {
                     MFCCParams mfccParams   = new MFCCParams(new JSONObject((String)args.get(1)));
+                    nMFCCDataDest           = mfccParams.nDataDest;
                     mfcc.setParams(mfccParams);
                     mfcc.setWlCb(callbackContext);
-//                    if(mfcc == null)
-//                    {
-//                        mfcc = new MFCCHandlerThread(mfccParams, mfccHandler, callbackContext, "name", Process.THREAD_PRIORITY_BACKGROUND);
-//                        mfcc.start();
-//                    }
-//                    else
-                        
-                    nMFCCDataDest           = mfccParams.nDataDest;
                 }
             }
             catch (JSONException e) 
@@ -165,11 +166,48 @@ public class AudioInputMfccPlugin extends CordovaPlugin
                 return false;
             }
         }
+        else if (action.equals("startMicPlayback")) 
+        {
+            if(aicCapture != null)
+                if(aicCapture.isCapturing())
+                {
+                    _callbackContext.error( "AudioInputMfccPlugin : plugin is already capturing.");
+                    return true;
+                }
+            // get params
+            CFGParams cfgParams;
+            try 
+            {
+                // JS interface call params:     capture_json_params, mfcc_json_params, source, datatype, origintype, write, [outputpath_noext];  params have been validated in the js interface
+                cfgParams         = new CFGParams(new JSONObject((String)args.get(0))); 
+            }
+            catch (JSONException e) 
+            {
+                _callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, e.toString()));
+                return false;
+            }
+
+            try
+            {
+                aicCapture                  = new AudioInputCapture(cfgParams, aicHandler, this, AudioInputCapture.PLAYBACK_MODE);                  
+                aicCapture.start();  //asynchronous call, cannot return anything since a permission request may be called 
+                callbackContext = _callbackContext;
+                sendNoResult2Web();
+            }
+            catch (Exception e) 
+            {
+                aicCapture.stop();
+                _callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, AudioInputCapture.PERMISSION_DENIED_ERROR));
+                return false;
+            }
+        }        
         else if (action.equals("stopCapture")) 
         {
             // an interrupt command is sent to audioreceiver, when it exits from its last cycle, it sends an event here
             callbackContext = _callbackContext;
             aicCapture.stop();
+            bIsCalculatingMFCC          = false;
+            nCapturedDataDest           = 0;            
             sendNoResult2Web();
         }        
         else if (action.equals("startMFCC")) 
@@ -240,6 +278,10 @@ public class AudioInputMfccPlugin extends CordovaPlugin
     public void onReset() {
         bIsCalculatingMFCC = false;
         if(aicCapture != null)  aicCapture.stop();
+    }
+    
+    @Override
+    public void onNewIntent(Intent intent) {
     }
     
     //=========================================================================================

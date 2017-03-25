@@ -34,6 +34,7 @@
         <source-file src="src/android/com/allspeak/AudioInputMfccPlugin.java" target-dir="src/com/allspeak" />
         <source-file src="src/android/com/allspeak/audiocapture/AudioInputCapture.java" target-dir="src/com/allspeak/audiocapture" />
         <source-file src="src/android/com/allspeak/audiocapture/AudioInputReceiver.java" target-dir="src/com/allspeak/audiocapture" />
+        <source-file src="src/android/com/allspeak/audiocapture/AudioPlayback.java" target-dir="src/com/allspeak/audiocapture" />
         <source-file src="src/android/com/allspeak/audiocapture/CFGParams.java" target-dir="src/com/allspeak/audiocapture" />
         <source-file src="src/android/com/allspeak/audioprocessing/FFT.java" target-dir="src/com/allspeak/audioprocessing" />
         <source-file src="src/android/com/allspeak/audioprocessing/WavFile.java" target-dir="src/com/allspeak/audioprocessing" />

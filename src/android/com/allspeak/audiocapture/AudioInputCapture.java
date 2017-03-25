@@ -14,7 +14,8 @@ public class AudioInputCapture
 {
     private static final String LOG_TAG         = "AudioInputCapture";
 
-    private AudioInputReceiver receiver         = null;
+    private AudioInputReceiver mReceiver        = null;
+    private AudioPlayback mPlayback             = null;
     private CordovaPlugin plugin                = null;
 
     public static String[]  permissions         = { Manifest.permission.RECORD_AUDIO };
@@ -22,6 +23,10 @@ public class AudioInputCapture
     public static final int PERMISSION_DENIED_ERROR = 20;
 
     private CFGParams cfgParams                 = null;     // Capture parameters
+
+    public static final int CAPTURE_MODE        = 0;
+    public static final int PLAYBACK_MODE       = 1;
+    private int nMode                           = CAPTURE_MODE;
     
     private boolean bIsCapturing                = false;
     private Handler handler;
@@ -35,6 +40,12 @@ public class AudioInputCapture
         plugin      = _plugin;
     }    
     
+    public AudioInputCapture(CFGParams params, Handler handl, CordovaPlugin _plugin, int mode)
+    {
+        this(params, handl, _plugin);
+        nMode = mode;
+    }    
+    
     public void start()
     {
         promptForRecord();
@@ -44,8 +55,17 @@ public class AudioInputCapture
     {
         try
         {
-            if(receiver != null)
-                if (!receiver.isInterrupted()) receiver.interrupt();
+            switch(nMode)
+            {
+                case CAPTURE_MODE:
+
+                    if(mReceiver != null)   if (!mReceiver.isInterrupted()) mReceiver.interrupt();
+                    break;
+
+                case PLAYBACK_MODE:
+
+                    if(mPlayback != null)   if (!mPlayback.isInterrupted()) mPlayback.interrupt();                
+            }            
             bIsCapturing = false;
         }
         catch (Exception e) 
@@ -63,10 +83,23 @@ public class AudioInputCapture
     //===========================================================================
     private void startCapturing()
     {
-        receiver = new AudioInputReceiver(cfgParams.nSampleRate, cfgParams.nBufferSize, cfgParams.nChannels, cfgParams.sFormat, cfgParams.nAudioSourceType);
-        receiver.setHandler(handler);
-        receiver.start();   
-        bIsCapturing = true;
+        switch(nMode)
+        {
+            case CAPTURE_MODE:
+                
+                mReceiver = new AudioInputReceiver(cfgParams.nSampleRate, cfgParams.nBufferSize, cfgParams.nChannels, cfgParams.sFormat, cfgParams.nAudioSourceType);
+                mReceiver.setHandler(handler);
+                mReceiver.start();   
+                bIsCapturing = true;
+                break;
+                
+            case PLAYBACK_MODE:
+                
+                mPlayback = new AudioPlayback(cfgParams.nSampleRate, cfgParams.nBufferSize, cfgParams.nChannels, cfgParams.sFormat, cfgParams.nAudioSourceType);
+                mPlayback.setHandler(handler);
+                mPlayback.start();   
+                bIsCapturing = true;                
+        }
     }
     /**
      * Ensure that we have gotten record audio permission
