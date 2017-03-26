@@ -248,6 +248,12 @@ audioinput.stop = function () {
     }
 };
 
+
+audioinput.setPlayBackPercVol = function (perc) {
+    if (audioinput._capturing) 
+        exec(null, audioinput._pluginError, audioinput.pluginName, "setPlayBackPercVol", [perc]);
+};
+
 //---------------------------------------------------------------
 /**
  * Start calculating MFCC

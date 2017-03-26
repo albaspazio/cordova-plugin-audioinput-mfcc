@@ -189,7 +189,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
 
             try
             {
-                aicCapture                  = new AudioInputCapture(cfgParams, aicHandler, this, AudioInputCapture.PLAYBACK_MODE);                  
+                aicCapture          = new AudioInputCapture(cfgParams, aicHandler, this, AudioInputCapture.PLAYBACK_MODE);                  
                 aicCapture.start();  //asynchronous call, cannot return anything since a permission request may be called 
                 callbackContext = _callbackContext;
                 sendNoResult2Web();
@@ -200,6 +200,18 @@ public class AudioInputMfccPlugin extends CordovaPlugin
                 _callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, AudioInputCapture.PERMISSION_DENIED_ERROR));
                 return false;
             }
+        }  
+        else if (action.equals("setPlayBackPercVol")) 
+        {
+            if(aicCapture.isCapturing())
+            {            
+                int newperc;
+                if(!args.isNull(0)) newperc = args.getInt(0);
+                else                newperc = 0;
+                
+                aicCapture.setPlayBackPercVol(newperc);
+            }
+            sendNoResult2Web();
         }        
         else if (action.equals("stopCapture")) 
         {

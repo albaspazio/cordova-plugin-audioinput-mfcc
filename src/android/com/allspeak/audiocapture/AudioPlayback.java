@@ -73,7 +73,13 @@ public class AudioPlayback extends Thread
         this.handler = handler;
     }
     
-    public void sendMessageToHandler(String field, String info)
+    public void setPlayBackPercVol(int newperc) {
+        float max = mAudioTrack.getMaxVolume();
+        float newgain = (newperc*max)/100;
+        mAudioTrack.setVolume(newgain);
+    }
+    
+    private void sendMessageToHandler(String field, String info)
     {
         message = handler.obtainMessage();
         messageBundle.putString(field, info);

@@ -78,6 +78,12 @@ public class AudioInputCapture
     {
         return bIsCapturing;
     }    
+    
+    public void setPlayBackPercVol(int perc)
+    {
+        if(nMode == PLAYBACK_MODE && bIsCapturing)
+            mPlayback.setPlayBackPercVol(perc);
+    }
     //===========================================================================
     // PRIVATE
     //===========================================================================
