@@ -116,10 +116,12 @@ public class MFCCHandlerThread extends HandlerThread implements Handler.Callback
     //===============================================================================================
     public void setParams(MFCCParams params)
     {
+        mfccParams  = params;
         mfcc.setParams(params);
     }
     public void setWlCb(CallbackContext wlcb)
     {
+        mWlCb = wlcb;        
         mfcc.setWlCb(wlcb);
     }
     

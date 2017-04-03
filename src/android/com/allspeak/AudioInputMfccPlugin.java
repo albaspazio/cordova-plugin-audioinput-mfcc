@@ -231,8 +231,6 @@ public class AudioInputMfccPlugin extends CordovaPlugin
                     MFCCParams mfccParams   = new MFCCParams(new JSONObject((String)args.get(0))); 
                     mfcc.setParams(mfccParams);
                     mfcc.setWlCb(callbackContext);
-                    
-//                    mfcc                    = new MFCC(mfccParams, mfccHandler, cordovaInterface, callbackContext); 
                     nMFCCDataDest           = mfccParams.nDataDest;
                 }
                 bIsCalculatingMFCC = true;
@@ -263,7 +261,6 @@ public class AudioInputMfccPlugin extends CordovaPlugin
                 MFCCParams mfccParams   = new MFCCParams(new JSONObject((String)args.get(0)));
                 mfcc.setParams(mfccParams);
                 mfcc.setWlCb(callbackContext);                
-//                mfcc                    = new MFCC(mfccParams, mfccHandler, cordovaInterface, callbackContext);            
                 nMFCCDataDest           = mfccParams.nDataDest;
                 String inputpathnoext   = args.getString(1); 
 
