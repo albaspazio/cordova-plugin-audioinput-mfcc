@@ -26,10 +26,10 @@ public class MFCCHandlerThread extends HandlerThread implements Handler.Callback
     private static final String TAG                 = "MFCCHandlerThread";
     
 //    private static final int MSG_INIT               = 0;
-    private static final int MSG_GETMFCC_FILE       = 1;
-    private static final int MSG_GETMFCC_FOLDER     = 2;
-    private static final int MSG_GETMFCC_DATA       = 3;
-    private static final int MSG_GETMFCC_QUEUEDATA  = 4;
+    public static final int MSG_GETMFCC_FILE       = 1;
+    public static final int MSG_GETMFCC_FOLDER     = 2;
+    public static final int MSG_GETMFCC_DATA       = 3;
+    public static final int MSG_GETMFCC_QUEUEDATA  = 4;
     
     private Handler mHandler, mCallback;
     private CallbackContext mWlCb;
@@ -114,6 +114,10 @@ public class MFCCHandlerThread extends HandlerThread implements Handler.Callback
     
     
     //===============================================================================================
+    public Handler init()
+    {
+        return mHandler;
+    }
     public void setParams(MFCCParams params)
     {
         mfccParams  = params;

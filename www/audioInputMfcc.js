@@ -15,6 +15,7 @@ audioinput.ENUM.RETURN  = {
     CAPTURE_DATA          : 1, //
     CAPTURE_STOP          : 2, //
     CAPTURE_ERROR         : 3, //
+    CAPTURE_START         : 4, //
     MFCC_DATA             : 10, //
     MFCC_PROGRESS_DATA    : 11, //
     MFCC_PROGRESS_FILE    : 12, //
@@ -202,7 +203,7 @@ audioinput.start = function (captureCfg, mfccCfg) {
             [json_capture_params,
              json_mfcc_params]);
 
-        audioinput._capturing = true;
+//        audioinput._capturing = true;
         
         if (audioinput.capture.params.bStreamToWebAudio) {
             if (audioinput._initWebAudio(audioinput.capture.params.AudioContext)) {
@@ -324,6 +325,12 @@ audioinput._pluginEvent = function (data) {
                 }
                 break;
                 
+            case audioinput.ENUM.RETURN.CAPTURE_START:
+                console.log("audioInputMfcc._startaudioInputEvent");
+                cordova.fireWindowEvent("capturestarted", {});
+                audioinput._capturing = true;                   
+                break;
+                
             case audioinput.ENUM.RETURN.CAPTURE_STOP:
                 console.log("audioInputMfcc._stopaudioInputEvent: captured " + parseInt(data.bytesread) + "bytes, " + parseInt(data.datacaptured)*12 + " time windows, dataprocessed: " + parseInt(data.dataprocessed)*12);
                 cordova.fireWindowEvent("capturestopped", {data: data});
@@ -360,8 +367,10 @@ audioinput._pluginEvent = function (data) {
  * @private
  */
 // TODO : receive an error code from plugin
-audioinput._pluginError = function (e) {
+audioinput._pluginError = function (e) 
+{
     cordova.fireWindowEvent("pluginError", {message: e});
+    audioinput._capturing = false;                   
 };
 
 //==================================================================================================================

@@ -6,6 +6,7 @@ import android.os.Handler;
 import android.os.Message;
 import android.os.Bundle;
 
+//=========================================================================================================================
 public class AudioInputCapture
 {
     private static final String LOG_TAG         = "AudioInputCapture";
@@ -25,6 +26,10 @@ public class AudioInputCapture
     private Message message;
     private Bundle messageBundle                = new Bundle();    
 
+    public static final int STATUS_CAPTURE_START        = 1;
+    public static final int STATUS_CAPTURE_DATA         = 2;    
+    public static final int STATUS_CAPTURE_STOP         = 3;    
+    public static final int STATUS_CAPTURE_ERROR        = 4;     
     //======================================================================================================================
     public AudioInputCapture(CFGParams params, Handler handl)
     {
@@ -38,11 +43,18 @@ public class AudioInputCapture
         plugin      = _plugin;
     }    
     
+    public AudioInputCapture(CFGParams params, Handler handl, int mode)
+    {
+        this(params, handl);
+        nMode = mode;
+    }    
+    
     public AudioInputCapture(CFGParams params, Handler handl, CordovaPlugin _plugin, int mode)
     {
         this(params, handl, _plugin);
         nMode = mode;
     }    
+    //======================================================================================================================
     
     public boolean start()
     {
@@ -65,7 +77,7 @@ public class AudioInputCapture
                     mPlayback.start();   
                     bIsCapturing = true;                
             }            
-            return true;
+            return bIsCapturing;
         }
         catch(Exception e)
         {
@@ -109,9 +121,9 @@ public class AudioInputCapture
             mPlayback.setPlayBackPercVol(perc);
     }
     
-    //===========================================================================
+    //======================================================================================================================
     // PRIVATE
-    //===========================================================================
+    //======================================================================================================================
     private void sendMessageToHandler(String field, String info)
     {
         messageBundle.putString(field, info);

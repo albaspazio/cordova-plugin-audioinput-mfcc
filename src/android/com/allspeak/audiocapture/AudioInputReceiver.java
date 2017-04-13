@@ -1,5 +1,6 @@
 package com.allspeak.audiocapture;
 
+import com.allspeak.audiocapture.AudioInputCapture;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
@@ -34,6 +35,7 @@ public class AudioInputReceiver extends Thread {
     private Message message;
     private Bundle messageBundle = new Bundle();
     
+    //==================================================================================================
     public AudioInputReceiver() {
         recorder = new AudioRecord(MediaRecorder.AudioSource.DEFAULT, sampleRateInHz, channelConfig, audioFormat, minBufferSize * RECORDING_BUFFER_FACTOR);
     }
@@ -80,29 +82,33 @@ public class AudioInputReceiver extends Thread {
 
     public void setHandler(Handler handler) {
         this.handler = handler;
-    }
-    
-    public void sendMessageToHandler(String field, String info)
+    }    
+    //==================================================================================================
+
+    private void sendMessageToHandler(int action_code, String field, String info)
     {
         message = handler.obtainMessage();
         messageBundle.putString(field, info);
         message.setData(messageBundle);
+        message.what    = action_code;
         handler.sendMessage(message);        
     }    
     
-    public void sendMessageToHandler(String field, int num)
+    private void sendMessageToHandler(int action_code, String field, int num)
     {
         message = handler.obtainMessage();
         messageBundle.putInt(field, num);
         message.setData(messageBundle);
+        message.what    = action_code;
         handler.sendMessage(message);        
     }    
     
-    public void sendDataToHandler(String field, float[] normalized_audio)
+    private void sendDataToHandler(int action_code, String field, float[] normalized_audio)
     {
         message = handler.obtainMessage();
         messageBundle.putFloatArray(field, normalized_audio);
         message.setData(messageBundle);
+        message.what    = action_code;
         handler.sendMessage(message);        
     }    
     
@@ -122,6 +128,7 @@ public class AudioInputReceiver extends Thread {
     }
 
 
+    //==================================================================================================
     @Override
     public void run() {
         int numReadBytes    = 0;
@@ -131,6 +138,7 @@ public class AudioInputReceiver extends Thread {
         synchronized(this) 
         {
             recorder.startRecording();
+            sendMessageToHandler(AudioInputCapture.STATUS_CAPTURE_START, "", "");
             while (!isInterrupted()) 
             {
                 try
@@ -140,18 +148,18 @@ public class AudioInputReceiver extends Thread {
                     {
                         nTotalReadBytes         += numReadBytes; 
                         float[] normalizedData  = normalizeAudio(audioBuffer);
-                        sendDataToHandler("data", normalizedData);
+                        sendDataToHandler(AudioInputCapture.STATUS_CAPTURE_DATA, "data", normalizedData);
                     }
                 }
                 catch(Exception ex) {
-                    sendMessageToHandler("error", ex.toString());
+                    sendMessageToHandler(AudioInputCapture.STATUS_CAPTURE_ERROR, "error", ex.toString());
                     break;
                 }
             }
             if (recorder.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
                 recorder.stop();
             }
-            sendMessageToHandler("stop", Integer.toString(nTotalReadBytes));
+            sendMessageToHandler(AudioInputCapture.STATUS_CAPTURE_STOP, "stop", Integer.toString(nTotalReadBytes));
             recorder.release();
             recorder = null;
         }

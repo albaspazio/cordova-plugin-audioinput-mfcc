@@ -29,9 +29,11 @@
 
         <config-file parent="/*" target="AndroidManifest.xml">
             <uses-permission android:name="android.permission.RECORD_AUDIO" />
+            <uses-permission android:name="android.permission.WAKE_LOCK" />            
         </config-file>
 
         <source-file src="src/android/com/allspeak/AudioInputMfccPlugin.java" target-dir="src/com/allspeak" />
+        <source-file src="src/android/com/allspeak/MFCCService.java" target-dir="src/com/allspeak" />
         <source-file src="src/android/com/allspeak/audiocapture/AudioInputCapture.java" target-dir="src/com/allspeak/audiocapture" />
         <source-file src="src/android/com/allspeak/audiocapture/AudioInputReceiver.java" target-dir="src/com/allspeak/audiocapture" />
         <source-file src="src/android/com/allspeak/audiocapture/AudioPlayback.java" target-dir="src/com/allspeak/audiocapture" />
