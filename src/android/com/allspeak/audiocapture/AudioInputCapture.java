@@ -32,11 +32,17 @@ public class AudioInputCapture
     private Handler handler;
     private Message message;
     private Bundle messageBundle                = new Bundle();    
+
     //======================================================================================================================
-    public AudioInputCapture(CFGParams params, Handler handl, CordovaPlugin _plugin)
+    public AudioInputCapture(CFGParams params, Handler handl)
     {
         cfgParams   = params;
         handler     = handl;
+    } 
+    
+    public AudioInputCapture(CFGParams params, Handler handl, CordovaPlugin _plugin)
+    {
+        this(params, handl);
         plugin      = _plugin;
     }    
     
@@ -46,9 +52,35 @@ public class AudioInputCapture
         nMode = mode;
     }    
     
-    public void start()
+    public boolean start()
     {
-        promptForRecord();
+        try
+        {
+            switch(nMode)
+            {
+                case CAPTURE_MODE:
+
+                    mReceiver = new AudioInputReceiver(cfgParams.nSampleRate, cfgParams.nBufferSize, cfgParams.nChannels, cfgParams.sFormat, cfgParams.nAudioSourceType);
+                    mReceiver.setHandler(handler);
+                    mReceiver.start();   
+                    bIsCapturing = true;
+                    break;
+
+                case PLAYBACK_MODE:
+
+                    mPlayback = new AudioPlayback(cfgParams.nSampleRate, cfgParams.nBufferSize, cfgParams.nChannels, cfgParams.sFormat, cfgParams.nAudioSourceType);
+                    mPlayback.setHandler(handler);
+                    mPlayback.start();   
+                    bIsCapturing = true;                
+            }            
+            return true;
+        }
+        catch(Exception e)
+        {
+            e.printStackTrace();
+            sendMessageToHandler("error", e.toString());
+            return false;            
+        }
     }
 
     public void stop()
@@ -84,63 +116,10 @@ public class AudioInputCapture
         if(nMode == PLAYBACK_MODE && bIsCapturing)
             mPlayback.setPlayBackPercVol(perc);
     }
+    
     //===========================================================================
     // PRIVATE
     //===========================================================================
-    private void startCapturing()
-    {
-        switch(nMode)
-        {
-            case CAPTURE_MODE:
-                
-                mReceiver = new AudioInputReceiver(cfgParams.nSampleRate, cfgParams.nBufferSize, cfgParams.nChannels, cfgParams.sFormat, cfgParams.nAudioSourceType);
-                mReceiver.setHandler(handler);
-                mReceiver.start();   
-                bIsCapturing = true;
-                break;
-                
-            case PLAYBACK_MODE:
-                
-                mPlayback = new AudioPlayback(cfgParams.nSampleRate, cfgParams.nBufferSize, cfgParams.nChannels, cfgParams.sFormat, cfgParams.nAudioSourceType);
-                mPlayback.setHandler(handler);
-                mPlayback.start();   
-                bIsCapturing = true;                
-        }
-    }
-    /**
-     * Ensure that we have gotten record audio permission
-     */
-    private void promptForRecord() 
-    {
-        if(PermissionHelper.hasPermission(plugin, permissions[RECORD_AUDIO])) 
-            startCapturing();
-        else
-            getMicPermission(RECORD_AUDIO);
-    }
-
-    /**
-    * Prompt user for record audio permission
-    */
-    protected void getMicPermission(int requestCode) 
-    {
-        PermissionHelper.requestPermission(plugin, requestCode, permissions[RECORD_AUDIO]);
-    }
-    /**
-     * Handle request permission result
-     */
-    public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults)
-    {
-        for(int r:grantResults) 
-        {
-            if(r == PackageManager.PERMISSION_DENIED) 
-            {
-                sendMessageToHandler("error", "PERMISSION_DENIED_ERROR");
-                return;
-            }
-        }
-        startCapturing();
-    }    
-
     private void sendMessageToHandler(String field, String info)
     {
         messageBundle.putString(field, info);

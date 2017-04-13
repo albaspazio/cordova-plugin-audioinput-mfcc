@@ -46,6 +46,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
     private final AudioCaptureHandler aicHandler= new AudioCaptureHandler(this);
     private AudioInputCapture aicCapture        = null;                                   // Capture instance
 
+    boolean isCapturingAllowed                  = false;
     private boolean bIsCapturing                = false;
     private int nCapturedBlocks                 = 0;
     private int nCapturedBytes                  = 0;
@@ -93,6 +94,8 @@ public class AudioInputMfccPlugin extends CordovaPlugin
         mfcc.start();      
         
         mAudioManager           = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
+        
+        promptForRecord();
     }
     //======================================================================================================================
     
@@ -562,7 +565,34 @@ public class AudioInputMfccPlugin extends CordovaPlugin
             result.setKeepCallback(keepCallback);
             callbackContext.sendPluginResult(result);
         }
-    }    
+    }  
+    //=================================================================================================
+    // GET RECORDING PERMISSIONS
+    //=================================================================================================        
+     //Ensure that we have gotten record audio permission
+    private void promptForRecord() 
+    {
+        if(PermissionHelper.hasPermission(this, permissions[RECORD_AUDIO])) 
+            isCapturingAllowed = true;
+        else
+            //Prompt user for record audio permission
+            PermissionHelper.requestPermission(this, RECORD_AUDIO, permissions[RECORD_AUDIO]);
+    }
+
+    // Handle request permission result
+    public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults)
+    {
+        for(int r:grantResults) 
+        {
+            if(r == PackageManager.PERMISSION_DENIED) 
+            {
+                sendError2Web("RECORDING_PERMISSION_DENIED_ERROR", true);
+                isCapturingAllowed = false;
+                return;
+            }
+        }
+        isCapturingAllowed = true;
+    }     
     //=================================================================================================
     // ACCESSORY FUNCTIONS
     //=================================================================================================
