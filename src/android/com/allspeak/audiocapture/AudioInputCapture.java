@@ -6,6 +6,7 @@ import android.os.Handler;
 import android.os.Message;
 import android.os.Bundle;
 
+//=========================================================================================================================
 public class AudioInputCapture
 {
     private static final String LOG_TAG         = "AudioInputCapture";
@@ -38,11 +39,18 @@ public class AudioInputCapture
         plugin      = _plugin;
     }    
     
+    public AudioInputCapture(CFGParams params, Handler handl, int mode)
+    {
+        this(params, handl);
+        nMode = mode;
+    }    
+    
     public AudioInputCapture(CFGParams params, Handler handl, CordovaPlugin _plugin, int mode)
     {
         this(params, handl, _plugin);
         nMode = mode;
     }    
+    //======================================================================================================================
     
     public boolean start()
     {
@@ -65,7 +73,7 @@ public class AudioInputCapture
                     mPlayback.start();   
                     bIsCapturing = true;                
             }            
-            return true;
+            return bIsCapturing;
         }
         catch(Exception e)
         {
@@ -109,9 +117,9 @@ public class AudioInputCapture
             mPlayback.setPlayBackPercVol(perc);
     }
     
-    //===========================================================================
+    //======================================================================================================================
     // PRIVATE
-    //===========================================================================
+    //======================================================================================================================
     private void sendMessageToHandler(String field, String info)
     {
         messageBundle.putString(field, info);
