@@ -395,10 +395,10 @@ public class MFCCService extends Service
                     e.printStackTrace();                      
                     Log.e(LOG_TAG, e.getMessage(), e);
                     service.onCaptureError(e.toString());
-                }
+    }
             }
         }
-    }
+        }
 
     private static class MFCCHandler extends Handler {
         private final WeakReference<MFCCService> mService;

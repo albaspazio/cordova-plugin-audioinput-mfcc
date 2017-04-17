@@ -63,12 +63,12 @@ public class AudioInputMfccPlugin extends CordovaPlugin
         mContext                = cordovaInterface.getActivity();
 
         bindService();
-        
+
         promptForRecordPermissions();
     }
     //======================================================================================================================
     //get Service interface    
-    
+
     private void bindService()
     {
         // bind service
