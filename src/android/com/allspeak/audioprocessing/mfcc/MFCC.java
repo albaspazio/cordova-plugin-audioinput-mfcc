@@ -279,7 +279,7 @@ public class MFCC
                     str_derivatives[0]  = exportArray2String(derivatives[0], nScores, sOutputPrecision);
                     str_derivatives[1]  = exportArray2String(derivatives[1], nScores, sOutputPrecision);
 
-                    writeTextParams(scores, mfccParams.sOutputPath + "_scores.dat");
+                    writeTextParams(scores,             mfccParams.sOutputPath + "_scores.dat");
                     writeTextParams(str_derivatives[0], mfccParams.sOutputPath + "_scores1st.dat");
                     writeTextParams(str_derivatives[1], mfccParams.sOutputPath + "_scores2nd.dat");  
                     //                tp.addTimepoint(4);                
@@ -350,7 +350,7 @@ public class MFCC
       
     private boolean writeTextParams(String params, String output_file)
     {
-        // write parameters to text files...mettere try e catch
+        // write parameters to text files
         boolean res = false;
         if(output_file != null)
         {

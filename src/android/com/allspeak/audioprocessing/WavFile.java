@@ -78,6 +78,24 @@ public class WavFile
         return validBits;
     }
 
+    public static boolean createWavFile(File file, int numChannels, float[] data, int validBits, long sampleRate) throws IOException, Exception
+    {
+        try
+        {           
+            int numFrames = data.length; 
+            
+            WavFile wf = newWavFile(file, numChannels, (long)numFrames, validBits, sampleRate);
+            wf.writeFrames(data, numFrames);
+            wf.close();
+            return true;                                
+        }     
+        catch(Exception e)
+        {
+            throw e;
+        }
+    }
+    
+    
     public static WavFile newWavFile(File file, int numChannels, long numFrames, int validBits, long sampleRate) throws IOException, Exception
     {
         // Instantiate new Wavfile and initialise
