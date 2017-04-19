@@ -11,16 +11,16 @@ audioinput.ENUM.capture = {};
 audioinput.ENUM.mfcc    = {};
 
 
-audioinput.ENUM.RETURN  = {
-    CAPTURE_DATA          : 1, //
-    CAPTURE_STOP          : 2, //
-    CAPTURE_ERROR         : 3, //
-    CAPTURE_START         : 4, //
-    MFCC_DATA             : 10, //
-    MFCC_PROGRESS_DATA    : 11, //
-    MFCC_PROGRESS_FILE    : 12, //
-//    MFCC_PROGRESS_FOLDER  : 13, //   suspended for a bug
-    MFCC_ERROR            : 14 //
+audioinput.ENUM.RETURN  = {     // must correspond to ENUMS.java
+    CAPTURE_STARTED       : 1, //
+    CAPTURE_DATA          : 2, //
+    CAPTURE_STOPPED       : 3, //
+    CAPTURE_ERROR         : 4, //
+    MFCC_DATA             : 21, //
+    MFCC_PROGRESS_DATA    : 22, //
+    MFCC_PROGRESS_FILE    : 23, //
+    MFCC_PROGRESS_FOLDER  : 24, //   suspended for a bug
+    MFCC_ERROR            : 29 //
 }; 
 
 // Supported audio formats
@@ -56,9 +56,9 @@ audioinput.ENUM.capture.AUDIOSOURCE_TYPE = {
     VOICE_RECOGNITION   : 6
 };
 
-audioinput.ENUM.capture.DATADEST={
-    NONE        : 0,
-    JSDATA      : 1
+audioinput.ENUM.capture.DATADEST={  // must correspond to ENUMS.java
+    NONE        : 40,
+    JSDATA      : 41
 };
 
 // Default values
@@ -325,13 +325,13 @@ audioinput._pluginEvent = function (data) {
                 }
                 break;
                 
-            case audioinput.ENUM.RETURN.CAPTURE_START:
+            case audioinput.ENUM.RETURN.CAPTURE_STARTED:
                 console.log("audioInputMfcc._startaudioInputEvent");
                 cordova.fireWindowEvent("capturestarted", {});
                 audioinput._capturing = true;                   
                 break;
                 
-            case audioinput.ENUM.RETURN.CAPTURE_STOP:
+            case audioinput.ENUM.RETURN.CAPTURE_STOPPED:
                 console.log("audioInputMfcc._stopaudioInputEvent: captured " + parseInt(data.bytesread) + "bytes, " + parseInt(data.datacaptured)*12 + " time windows, dataprocessed: " + parseInt(data.dataprocessed)*12);
                 cordova.fireWindowEvent("capturestopped", {data: data});
                 audioinput._capturing = false;                   

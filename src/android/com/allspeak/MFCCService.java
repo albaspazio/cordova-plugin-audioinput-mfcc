@@ -28,6 +28,7 @@ import android.util.Log;
 import java.lang.ref.WeakReference;
 import java.util.Arrays;
 
+import com.allspeak.ENUMS;
 import com.allspeak.audioprocessing.mfcc.*;
 import com.allspeak.audiocapture.*;
 
@@ -51,9 +52,7 @@ public class MFCCService extends Service
     private int nCapturedBytes                  = 0;
 
     // what to do with captured data
-    public static final int DATADEST_NONE       = 0;        // don't send back to Web Layer
-    public static final int DATADEST_JS         = 1;        // send back to Web Layer 
-    private int nCapturedDataDest               = DATADEST_NONE;
+    private int nCapturedDataDest               = ENUMS.CAPTURE_DATADEST_NONE;
     
     //-----------------------------------------------------------------------------------------------
     // PLAYBACK
@@ -87,7 +86,13 @@ public class MFCCService extends Service
     //called after plugin got the service interface (ServiceConnection::onServiceConnected)
     public void initService()
     {
-        mAudioManager       = (AudioManager) this.getSystemService(Context.AUDIO_SERVICE);       
+        mAudioManager       = (AudioManager) this.getSystemService(Context.AUDIO_SERVICE); 
+        
+        //start the MFCC HandlerThread
+        mMfccParams             = new MFCCParams();
+        mfcc                    = new MFCCHandlerThread(mMfccParams, mfccHandler, callbackContext, "MFCCHandlerThread", Process.THREAD_PRIORITY_MORE_FAVORABLE);
+        mfcc.start();   
+        Log.d(LOG_TAG, "========> initService() <=========");
     }
     
     //===============================================================================
@@ -108,20 +113,23 @@ public class MFCCService extends Service
         {
             callbackContext             = cb;
             mCfgParams                  = cfgParams;
-            aicCapture                  = new AudioInputCapture(mCfgParams, aicHandler);                  
-            bIsCalculatingMFCC          = cfgParams.bStartMFCC;
-            nCapturedDataDest           = cfgParams.nDataDest;
-
+            Handler mfccHandlerThread   = null;
             if(mfccParams != null)
             {
                 mMfccParams             = mfccParams;
                 nMFCCDataDest           = mMfccParams.nDataDest;
 
-                //start the MFCC HandlerThread
-                mfcc                    = new MFCCHandlerThread(mMfccParams, mfccHandler, callbackContext, "MFCCHandlerThread", Process.THREAD_PRIORITY_MORE_FAVORABLE);
-                mfcc.start();   
-                mfcc.init();                  
-            }
+//                //start the MFCC HandlerThread
+//                mfcc                    = new MFCCHandlerThread(mMfccParams, mfccHandler, callbackContext, "MFCCHandlerThread", Process.THREAD_PRIORITY_MORE_FAVORABLE);
+//                mfcc.start();  
+
+                mfcc.setParams(mMfccParams);
+                mfccHandlerThread       = mfcc.getHandlerLooper();                  
+            }            
+            aicCapture                  = new AudioInputCapture(mCfgParams, aicHandler, mfccHandlerThread);                  
+            bIsCalculatingMFCC          = cfgParams.bStartMFCC;
+            nCapturedDataDest           = cfgParams.nDataDest;
+
         }
         catch (Exception e) 
         {
@@ -150,6 +158,7 @@ public class MFCCService extends Service
         catch (Exception e) 
         {
             // decide if stop the receiver or destroy the istance.....
+            unlockCPU();
             aicCapture.stop();
             callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, e.getMessage()));
             callbackContext = null;                
@@ -163,7 +172,7 @@ public class MFCCService extends Service
         {
             callbackContext     = cb;
             mCfgParams          = cfgParams;            
-            aicCapture          = new AudioInputCapture(mCfgParams, aicHandler, AudioInputCapture.PLAYBACK_MODE);                  
+            aicCapture          = new AudioInputCapture(mCfgParams, aicHandler, ENUMS.PLAYBACK_MODE);                  
             aicCapture.start();  //asynchronous call, cannot return anything since a permission request may be called 
             return true;
         }
@@ -218,10 +227,10 @@ public class MFCCService extends Service
 
 //        Log.d(LOG_TAG, "new raw data arrived in MainPlugin Activity: " + Integer.toString(nCapturedBlocks));
         
-        if(bIsCalculatingMFCC) mfcc.getQueueMFCC(data); // calculate MFCC/MFFILTERS ??
+//        if(bIsCalculatingMFCC) mfcc.getQueueMFCC(data); // calculate MFCC/MFFILTERS ??
              
         // send raw to WEB ??
-        if(nCapturedDataDest == DATADEST_JS)
+        if(nCapturedDataDest == ENUMS.CAPTURE_DATADEST_JS)
         {    
             try 
             {
@@ -229,7 +238,7 @@ public class MFCCService extends Service
                 String decoded  = Arrays.toString(data);
                 JSONObject info = new JSONObject();
 
-                info.put("type", AudioInputMfccPlugin.RETURN_TYPE.CAPTURE_DATA);
+                info.put("type", ENUMS.CAPTURE_DATA);
                 info.put("data", decoded);
                 sendUpdate2Web(info, true);
             }
@@ -248,7 +257,7 @@ public class MFCCService extends Service
         {
             unlockCPU();            
             JSONObject info = new JSONObject();
-            info.put("type", AudioInputMfccPlugin.RETURN_TYPE.CAPTURE_ERROR);
+            info.put("type", ENUMS.CAPTURE_ERROR);
             info.put("error", error);        
             sendError2Web(info, true);
         }
@@ -261,7 +270,7 @@ public class MFCCService extends Service
         {
             bIsCapturing    = true;
             JSONObject info = new JSONObject();
-            info.put("type", AudioInputMfccPlugin.RETURN_TYPE.CAPTURE_START);
+            info.put("type", ENUMS.CAPTURE_STARTED);
             sendUpdate2Web(info, true);    
         }
         catch (JSONException e){e.printStackTrace();}            
@@ -276,7 +285,7 @@ public class MFCCService extends Service
             unlockCPU();
             bIsCapturing    = false;
             JSONObject info = new JSONObject();
-            info.put("type", AudioInputMfccPlugin.RETURN_TYPE.CAPTURE_STOP);
+            info.put("type", ENUMS.CAPTURE_STOPPED);
             info.put("datacaptured", nCapturedBlocks);        
             info.put("dataprocessed", nMFCCFrames2beProcessed);        
             info.put("bytesread", bytesread);        
@@ -306,7 +315,7 @@ public class MFCCService extends Service
             {
                 case MFCCParams.DATADEST_ALL:
                 case MFCCParams.DATADEST_JSDATA:        //   "" + send progress(filename) + data(JSONArray) to WEB
-                    info.put("type", AudioInputMfccPlugin.RETURN_TYPE.MFCC_DATA);
+                    info.put("type", ENUMS.MFCC_DATA);
                     JSONArray data = new JSONArray(params);
                     info.put("data", data);
                     info.put("progress", source);
@@ -314,7 +323,7 @@ public class MFCCService extends Service
                     break;
 
                 case MFCCParams.DATADEST_JSPROGRESS:    //   "" + send progress(filename) to WEB
-                    info.put("type", AudioInputMfccPlugin.RETURN_TYPE.MFCC_PROGRESS_DATA);
+                    info.put("type", ENUMS.MFCC_PROGRESS_DATA);
                     info.put("progress", source);
                     sendUpdate2Web(info, true);
                     break;                   
@@ -346,7 +355,7 @@ public class MFCCService extends Service
         try
         {
             JSONObject info = new JSONObject();
-            info.put("type", AudioInputMfccPlugin.RETURN_TYPE.MFCC_ERROR);
+            info.put("type", ENUMS.MFCC_ERROR);
             info.put("error", error);        
             sendError2Web(info, true);
         }
@@ -373,19 +382,19 @@ public class MFCCService extends Service
                     Bundle b = msg.getData();   //get message type
                     switch((int)msg.what) //get message type
                     {
-                        case AudioInputCapture.STATUS_CAPTURE_DATA:
+                        case ENUMS.CAPTURE_DATA:
                             service.onCaptureData(b.getFloatArray("data"));
                             break;
                         
-                        case AudioInputCapture.STATUS_CAPTURE_STOP:
+                        case ENUMS.CAPTURE_STOPPED:
                             service.onCaptureStop(b.getString("stop"));    
                             break;
                         
-                        case AudioInputCapture.STATUS_CAPTURE_ERROR:
+                        case ENUMS.CAPTURE_ERROR:
                             service.onCaptureError(b.getString("error"));
                             break;
 
-                        case AudioInputCapture.STATUS_CAPTURE_START:
+                        case ENUMS.CAPTURE_STARTED:
                             service.onCaptureStart();
                             break;
                     }                    
@@ -420,12 +429,12 @@ public class MFCCService extends Service
                     Bundle b        = msg.getData();
                     switch((int)msg.what) //get message type
                     {
-                        case MFCC.STATUS_DATAPROGRESS:
+                        case ENUMS.MFCC_PROGRESS_DATA:
                             
                             activity.onMFCCProgress(Integer.parseInt(b.getString("progress")));
                             break;
                             
-                        case MFCC.STATUS_NEWDATA:
+                        case ENUMS.MFCC_DATA:
                             
                             String source       = b.getString("source");
                             int nframes         = b.getInt("nframes");
@@ -436,26 +445,26 @@ public class MFCCService extends Service
                             activity.onMFCCData(res, res_1st, res_2nd, source);                            
                             break;
                             
-                        case MFCC.STATUS_PROGRESS_FILE:
+                        case ENUMS.MFCC_PROGRESS_FILE:
                             
-                            info.put("type", AudioInputMfccPlugin.RETURN_TYPE.MFCC_PROGRESS_FILE);
+                            info.put("type", ENUMS.MFCC_PROGRESS_FILE);
                             info.put("progress", b.getString("progress_file"));
                             activity.sendUpdate2Web(info, true);                            
                             break;
                             
-                        case MFCC.STATUS_PROGRESS_FOLDER:
+                        case ENUMS.MFCC_PROGRESS_FOLDER:
                             
-                            info.put("type", AudioInputMfccPlugin.RETURN_TYPE.MFCC_PROGRESS_FOLDER);
+                            info.put("type", ENUMS.MFCC_PROGRESS_FOLDER);
                             info.put("progress", b.getString("progress_folder"));
                             activity.sendUpdate2Web(info, true);                        
                             break;
                             
-                        case MFCC.STATUS_ERROR:
+                        case ENUMS.MFCC_ERROR:
                             
                             activity.onMFCCError(b.getString("error"));     // is an error
                             break;
                             
-                        case MFCC.STATUS_PROCESSINGSTARTED:
+                        case ENUMS.MFCC_PROCESS_STARTED:
                             
                             activity.onMFCCStartProcessing((int)msg.obj);                            
                             break;

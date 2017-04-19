@@ -6,52 +6,75 @@ import android.os.Handler;
 import android.os.Message;
 import android.os.Bundle;
 
+import com.allspeak.ENUMS;
 //=========================================================================================================================
 public class AudioInputCapture
 {
     private static final String LOG_TAG         = "AudioInputCapture";
 
-    private AudioInputReceiver mReceiver        = null;
+    private AudioInputReceiver mAIReceiver      = null;
     private AudioPlayback mPlayback             = null;
     private CordovaPlugin plugin                = null;
 
     private CFGParams cfgParams                 = null;     // Capture parameters
 
-    public static final int CAPTURE_MODE        = 0;
-    public static final int PLAYBACK_MODE       = 1;
-    private int nMode                           = CAPTURE_MODE;
+    private int nMode                           = ENUMS.CAPTURE_MODE;
     
     private boolean bIsCapturing                = false;
-    private Handler handler;
+    private Handler mParentHandler              = null;
+    private Handler mSecondHandler              = null;
     private Message message;
     private Bundle messageBundle                = new Bundle();    
-
-    public static final int STATUS_CAPTURE_START        = 1;
-    public static final int STATUS_CAPTURE_DATA         = 2;    
-    public static final int STATUS_CAPTURE_STOP         = 3;    
-    public static final int STATUS_CAPTURE_ERROR        = 4;     
+ 
     //======================================================================================================================
-    public AudioInputCapture(CFGParams params, Handler handl)
+    public AudioInputCapture(CFGParams params, Handler phandl)
     {
-        cfgParams   = params;
-        handler     = handl;
+        cfgParams       = params;
+        mParentHandler  = phandl;
+        mSecondHandler  = null;
     } 
     
-    public AudioInputCapture(CFGParams params, Handler handl, CordovaPlugin _plugin)
+    public AudioInputCapture(CFGParams params, Handler phandl, CordovaPlugin _plugin)
     {
-        this(params, handl);
+        this(params, phandl);
         plugin      = _plugin;
     }    
     
-    public AudioInputCapture(CFGParams params, Handler handl, int mode)
+    public AudioInputCapture(CFGParams params, Handler phandl, int mode)
     {
-        this(params, handl);
+        this(params, phandl);
+        nMode = mode;
+    }     
+    
+    public AudioInputCapture(CFGParams params, Handler phandl, CordovaPlugin _plugin, int mode)
+    {
+        this(params, phandl, _plugin);
+        nMode = mode;
+    }     
+    
+    
+    public AudioInputCapture(CFGParams params, Handler phandl, Handler shandl)
+    {
+        cfgParams       = params;
+        mParentHandler  = phandl;
+        mSecondHandler  = shandl;
+    } 
+    
+    public AudioInputCapture(CFGParams params, Handler phandl, Handler shandl, CordovaPlugin _plugin)
+    {
+        this(params, phandl, shandl);
+        plugin      = _plugin;
+    }       
+    
+    public AudioInputCapture(CFGParams params, Handler phandl, Handler shandl, int mode)
+    {
+        this(params, phandl,shandl);
         nMode = mode;
     }    
     
-    public AudioInputCapture(CFGParams params, Handler handl, CordovaPlugin _plugin, int mode)
+    public AudioInputCapture(CFGParams params, Handler phandl, Handler shandl, CordovaPlugin _plugin, int mode)
     {
-        this(params, handl, _plugin);
+        this(params, phandl, shandl, _plugin);
         nMode = mode;
     }    
     //======================================================================================================================
@@ -62,18 +85,18 @@ public class AudioInputCapture
         {
             switch(nMode)
             {
-                case CAPTURE_MODE:
+                case ENUMS.CAPTURE_MODE:
 
-                    mReceiver = new AudioInputReceiver(cfgParams.nSampleRate, cfgParams.nBufferSize, cfgParams.nChannels, cfgParams.sFormat, cfgParams.nAudioSourceType);
-                    mReceiver.setHandler(handler);
-                    mReceiver.start();   
+                    mAIReceiver = new AudioInputReceiver(cfgParams.nSampleRate, cfgParams.nBufferSize, cfgParams.nChannels, cfgParams.sFormat, cfgParams.nAudioSourceType);
+                    mAIReceiver.setHandler(mParentHandler, mSecondHandler);
+                    mAIReceiver.start();   
                     bIsCapturing = true;
                     break;
 
-                case PLAYBACK_MODE:
+                case ENUMS.PLAYBACK_MODE:
 
                     mPlayback = new AudioPlayback(cfgParams.nSampleRate, cfgParams.nBufferSize, cfgParams.nChannels, cfgParams.sFormat, cfgParams.nAudioSourceType);
-                    mPlayback.setHandler(handler);
+                    mAIReceiver.setHandler(mParentHandler, mSecondHandler);
                     mPlayback.start();   
                     bIsCapturing = true;                
             }            
@@ -82,7 +105,7 @@ public class AudioInputCapture
         catch(Exception e)
         {
             e.printStackTrace();
-            sendMessageToHandler("error", e.toString());
+            sendMessageToHandler(ENUMS.CAPTURE_ERROR, "error", e.toString());
             return false;            
         }
     }
@@ -93,12 +116,12 @@ public class AudioInputCapture
         {
             switch(nMode)
             {
-                case CAPTURE_MODE:
+                case ENUMS.CAPTURE_MODE:
 
-                    if(mReceiver != null)   if (!mReceiver.isInterrupted()) mReceiver.interrupt();
+                    if(mAIReceiver != null)   if (!mAIReceiver.isInterrupted()) mAIReceiver.interrupt();
                     break;
 
-                case PLAYBACK_MODE:
+                case ENUMS.PLAYBACK_MODE:
 
                     if(mPlayback != null)   if (!mPlayback.isInterrupted()) mPlayback.interrupt();                
             }            
@@ -106,7 +129,7 @@ public class AudioInputCapture
         }
         catch (Exception e) 
         {
-            sendMessageToHandler("error", e.toString());
+            sendMessageToHandler(ENUMS.CAPTURE_ERROR, "error", e.toString());
         }        
     }
     
@@ -117,18 +140,19 @@ public class AudioInputCapture
     
     public void setPlayBackPercVol(int perc)
     {
-        if(nMode == PLAYBACK_MODE && bIsCapturing)
+        if(nMode == ENUMS.PLAYBACK_MODE && bIsCapturing)
             mPlayback.setPlayBackPercVol(perc);
     }
     
     //======================================================================================================================
     // PRIVATE
     //======================================================================================================================
-    private void sendMessageToHandler(String field, String info)
+    private void sendMessageToHandler(int action_code, String field, String str)
     {
-        messageBundle.putString(field, info);
-        message = handler.obtainMessage();
+        message = mParentHandler.obtainMessage();
+        messageBundle.putString(field, str);
         message.setData(messageBundle);
-        handler.sendMessage(message);        
-    }    
+        message.what    = action_code;
+        mParentHandler.sendMessage(message);        
+    }
 }

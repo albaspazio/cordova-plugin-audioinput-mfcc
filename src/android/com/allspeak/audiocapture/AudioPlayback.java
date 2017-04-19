@@ -1,5 +1,6 @@
 package com.allspeak.audiocapture;
 
+import com.allspeak.ENUMS;
 import android.media.AudioRecord;
 import android.media.AudioFormat;
 import android.media.AudioTrack;
@@ -79,11 +80,12 @@ public class AudioPlayback extends Thread
         mAudioTrack.setVolume(newgain);
     }
     
-    private void sendMessageToHandler(String field, String info)
+    private void sendMessageToHandler(int action_code, String field, String info)
     {
         message = handler.obtainMessage();
         messageBundle.putString(field, info);
         message.setData(messageBundle);
+        message.what    = action_code;
         handler.sendMessage(message);        
     }    
 
@@ -97,7 +99,8 @@ public class AudioPlayback extends Thread
         {
             mRecorder.startRecording();
             mAudioTrack.setPlaybackRate(sampleRateInHz);
-            mAudioTrack.play();               
+            mAudioTrack.play();      
+            sendMessageToHandler(ENUMS.CAPTURE_STARTED, "", "");
             
             while (!isInterrupted()) 
             {
@@ -108,7 +111,7 @@ public class AudioPlayback extends Thread
                 }
                 catch(Exception ex) 
                 {
-                    sendMessageToHandler("error", ex.toString());
+                    sendMessageToHandler(ENUMS.CAPTURE_ERROR, "error", ex.toString());
                     break;
                 }
             }
@@ -117,7 +120,7 @@ public class AudioPlayback extends Thread
                 mRecorder.stop();
                 mAudioTrack.stop();
             }
-            sendMessageToHandler("stop", "");
+            sendMessageToHandler(ENUMS.CAPTURE_STOPPED, "stop", Integer.toString(nTotalReadBytes));
             mRecorder.release();
             mRecorder = null;
             mAudioTrack.release();

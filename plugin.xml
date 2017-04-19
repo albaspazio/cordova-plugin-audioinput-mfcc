@@ -24,6 +24,7 @@
         <config-file parent="/*" target="res/xml/config.xml">
             <feature name="AudioInputCaptureMFCC">
                 <param name="android-package" value="com.allspeak.AudioInputMfccPlugin" />
+                <param name="onload" value="true" />                
             </feature>
         </config-file>
 
@@ -34,6 +35,7 @@
 
         <source-file src="src/android/com/allspeak/AudioInputMfccPlugin.java" target-dir="src/com/allspeak" />
         <source-file src="src/android/com/allspeak/MFCCService.java" target-dir="src/com/allspeak" />
+        <source-file src="src/android/com/allspeak/ENUMS.java" target-dir="src/com/allspeak" />
         <source-file src="src/android/com/allspeak/audiocapture/AudioInputCapture.java" target-dir="src/com/allspeak/audiocapture" />
         <source-file src="src/android/com/allspeak/audiocapture/AudioInputReceiver.java" target-dir="src/com/allspeak/audiocapture" />
         <source-file src="src/android/com/allspeak/audiocapture/AudioPlayback.java" target-dir="src/com/allspeak/audiocapture" />

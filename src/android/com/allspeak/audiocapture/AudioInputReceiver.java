@@ -1,6 +1,6 @@
 package com.allspeak.audiocapture;
 
-import com.allspeak.audiocapture.AudioInputCapture;
+import com.allspeak.ENUMS;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
@@ -31,7 +31,8 @@ public class AudioInputReceiver extends Thread {
     private int readBufferSize = minBufferSize;
 
     private AudioRecord recorder;
-    private Handler handler;
+    private Handler mParentHandler;
+    private Handler mSecondHandler      = null;
     private Message message;
     private Bundle messageBundle = new Bundle();
     
@@ -80,36 +81,57 @@ public class AudioInputReceiver extends Thread {
         recorder = new AudioRecord(audioSource, sampleRateInHz, channelConfig, audioFormat, recordingBufferSize);
     }
 
-    public void setHandler(Handler handler) {
-        this.handler = handler;
+    public void setHandler(Handler parentHandler) {
+        this.mParentHandler = parentHandler;
+    }    
+
+    public void setHandler(Handler parentHandler, Handler secondHandler) {
+        this.mParentHandler = parentHandler;
+        this.mSecondHandler = secondHandler;
     }    
     //==================================================================================================
 
     private void sendMessageToHandler(int action_code, String field, String info)
     {
-        message = handler.obtainMessage();
+        message = mParentHandler.obtainMessage();
         messageBundle.putString(field, info);
         message.setData(messageBundle);
         message.what    = action_code;
-        handler.sendMessage(message);        
+        mParentHandler.sendMessage(message);        
     }    
     
     private void sendMessageToHandler(int action_code, String field, int num)
     {
-        message = handler.obtainMessage();
+        message = mParentHandler.obtainMessage();
         messageBundle.putInt(field, num);
         message.setData(messageBundle);
         message.what    = action_code;
-        handler.sendMessage(message);        
+        mParentHandler.sendMessage(message);        
     }    
     
-    private void sendDataToHandler(int action_code, String field, float[] normalized_audio)
+    private Bundle sendDataToHandler(int action_code, String field, float[] normalized_audio)
     {
-        message = handler.obtainMessage();
-        messageBundle.putFloatArray(field, normalized_audio);
-        message.setData(messageBundle);
-        message.what    = action_code;
-        handler.sendMessage(message);        
+        Bundle b        = new Bundle();
+        b.putFloatArray(field, normalized_audio);        
+        
+        Message pmessage = mParentHandler.obtainMessage();
+        pmessage.what    = action_code;
+        pmessage.setData(b);
+        mParentHandler.sendMessage(pmessage);  
+        return b;
+    }    
+    
+    private void sendDataToHandlers(int action_code, String field, float[] normalized_audio)
+    {
+        Bundle b        = sendDataToHandler(action_code, field, normalized_audio);
+        
+        if(mSecondHandler != null)
+        {
+            Message smessage = mSecondHandler.obtainMessage();
+            smessage.what    = action_code;
+            smessage.setData(b);
+            mSecondHandler.sendMessage(smessage);        
+        }
     }    
     
     private float[] normalizeAudio(short[] pcmData) 
@@ -138,7 +160,7 @@ public class AudioInputReceiver extends Thread {
         synchronized(this) 
         {
             recorder.startRecording();
-            sendMessageToHandler(AudioInputCapture.STATUS_CAPTURE_START, "", "");
+            sendMessageToHandler(ENUMS.CAPTURE_STARTED, "", "");
             while (!isInterrupted()) 
             {
                 try
@@ -148,18 +170,18 @@ public class AudioInputReceiver extends Thread {
                     {
                         nTotalReadBytes         += numReadBytes; 
                         float[] normalizedData  = normalizeAudio(audioBuffer);
-                        sendDataToHandler(AudioInputCapture.STATUS_CAPTURE_DATA, "data", normalizedData);
+                        sendDataToHandlers(ENUMS.CAPTURE_DATA, "data", normalizedData);
                     }
                 }
                 catch(Exception ex) {
-                    sendMessageToHandler(AudioInputCapture.STATUS_CAPTURE_ERROR, "error", ex.toString());
+                    sendMessageToHandler(ENUMS.CAPTURE_ERROR, "error", ex.toString());
                     break;
                 }
             }
-            if (recorder.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
+            if (recorder.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) 
                 recorder.stop();
-            }
-            sendMessageToHandler(AudioInputCapture.STATUS_CAPTURE_STOP, "stop", Integer.toString(nTotalReadBytes));
+            
+            sendMessageToHandler(ENUMS.CAPTURE_STOPPED, "stop", Integer.toString(nTotalReadBytes));
             recorder.release();
             recorder = null;
         }

@@ -24,7 +24,7 @@ import java.io.FilenameFilter;
 
 import android.os.ResultReceiver;
 
-import com.allspeak.AudioInputMfccPlugin;
+import com.allspeak.ENUMS;
 import com.allspeak.audioprocessing.WavFile;
 import com.allspeak.utility.StringUtility;
 import com.allspeak.utility.TrackPerformance;
@@ -47,13 +47,6 @@ public class MFCC
     private static final int MODE_THREAD                = 0;
     private static final int MODE_INTENTSERVICE         = 1;
     private int nMode                                   = MODE_THREAD;
-    
-    public static final int STATUS_PROCESSINGSTARTED    = 0;
-    public static final int STATUS_DATAPROGRESS         = 1;
-    public static final int STATUS_NEWDATA              = 2;    
-    public static final int STATUS_PROGRESS_FILE        = 3;    
-    public static final int STATUS_PROGRESS_FOLDER      = 4;    
-    public static final int STATUS_ERROR                = 10; 
     
     private MFCCParams mfccParams               = null;                                   // MFCC parameters
     private MFCCCalcJAudio mfcc                 = null; 
@@ -200,7 +193,7 @@ public class MFCC
         {
             e.printStackTrace();
             Log.e(TAG, "processFile" + ": Error: " + e.toString());
-            sendMessageToMain(STATUS_ERROR, "error", e.toString());
+            sendMessageToMain(ENUMS.MFCC_ERROR, "error", e.getMessage());
         }        
     }            
 
@@ -217,13 +210,13 @@ public class MFCC
 //            tp.addTimepoint(1);
             processRawData(data);
 //            tp.addTimepoint(2);   
-            sendMessageToMain(STATUS_PROGRESS_FILE, "progress_file", mfccParams.sOutputPath);
+            sendMessageToMain(ENUMS.MFCC_PROGRESS_FILE, "progress_file", mfccParams.sOutputPath);
          }
         catch(Exception e)
         {
             e.printStackTrace();
             Log.e(TAG, "processFile" + ": Error: " + e.toString());
-            sendMessageToMain(STATUS_ERROR, "error", e.toString());
+            sendMessageToMain(ENUMS.MFCC_ERROR, "error", e.getMessage());
         }        
     }
     
@@ -247,7 +240,7 @@ public class MFCC
                 tempfile            = input_folderpath + File.separatorChar + files[i].getName();
                 processFile(StringUtility.removeExtension(tempfile));
             }   
-//            sendMessageToMain("progress_folder", input_folderpath);           
+//            sendMessageToMain(ENUMS.MFCC_PROGRESS_FOLDER, "progress_folder", mfccParams.sOutputPath);          
             // BUG....it doesn't work...since the last-1 file, in the target I get a Bundle with either process_file and process_folder messages
             // folder processing completion is presently resolved in the web layer.
         }
@@ -255,7 +248,7 @@ public class MFCC
         {
             e.printStackTrace();
             Log.e(TAG, "processFolder" + ": Error: " + e.toString());
-            sendMessageToMain(STATUS_ERROR, "error", e.toString());
+            sendMessageToMain(ENUMS.MFCC_ERROR, "error", e.getMessage());
         }    
     }
     
@@ -301,7 +294,7 @@ public class MFCC
                 case MFCCParams.DATADEST_JSDATAWEB:
                     //costruire json e chiamare
                     JSONObject info         = new JSONObject();
-                    info.put("type",        AudioInputMfccPlugin.RETURN_TYPE.MFCC_DATA);
+                    info.put("type",        ENUMS.MFCC_DATA);
                     info.put("data",        new JSONArray(data));
                     info.put("first_der",   new JSONArray(derivatives[0]));
                     info.put("second_der",  new JSONArray(derivatives[1]));
@@ -316,7 +309,7 @@ public class MFCC
             {
                 case MFCCParams.DATADEST_FILE:
                 case MFCCParams.DATADEST_FILEWEB:
-                    sendMessageToMain(STATUS_DATAPROGRESS, "progress", Integer.toString(nFrames));              
+                    sendMessageToMain(ENUMS.MFCC_PROGRESS_DATA, "progress", Integer.toString(nFrames));              
                     break;
             }             
             //------------------------------------------------------------------
@@ -328,7 +321,7 @@ public class MFCC
                 case MFCCParams.DATADEST_JSPROGRESS:            
                 case MFCCParams.DATADEST_JSDATA:            
                 case MFCCParams.DATADEST_ALL:            
-                    sendDataToMain(STATUS_NEWDATA, data, derivatives);  
+                    sendDataToMain(ENUMS.MFCC_DATA, data, derivatives);  
             }
             //------------------------------------------------------------------
 //            else{ int[] elapsed = tp.endTracking();                res_jsonarray.put(1, new JSONArray(elapsed)); }
@@ -337,7 +330,7 @@ public class MFCC
         {
             e.printStackTrace();
             Log.e(TAG, "exportData" + ": Error: " + e.toString());
-            sendMessageToMain(STATUS_ERROR, "error", e.toString());
+            sendMessageToMain(ENUMS.MFCC_ERROR, "error", e.getMessage());
         }
     }    
     
@@ -369,7 +362,7 @@ public class MFCC
             }
             catch(Exception e)
             {
-                sendMessageToMain(STATUS_ERROR, "error", e.toString());
+                sendMessageToMain(ENUMS.MFCC_ERROR, "error", e.getMessage());
             }
         }  
         return res;
@@ -389,7 +382,7 @@ public class MFCC
             }
             catch(Exception e)
             {
-                sendMessageToMain(STATUS_ERROR, "error", e.toString());
+               sendMessageToMain(ENUMS.MFCC_ERROR, "error", e.getMessage());
             }            
         }
         return res;
@@ -415,7 +408,7 @@ public class MFCC
     //======================================================================================    
     // ACCESSORY
     //======================================================================================    
-    private static boolean writeFile(String filename, String data) throws Exception
+    private boolean writeFile(String filename, String data) throws Exception
     {
         try 
         {
@@ -431,7 +424,8 @@ public class MFCC
         catch (Exception e) 
         {
             e.printStackTrace();
-            throw e;
+            sendMessageToMain(ENUMS.MFCC_ERROR, "error", e.getMessage());
+            return false;
         }	
     }
     
@@ -614,7 +608,7 @@ public class MFCC
                 break;
         }
     }    
-    
+
     private void sendDataToMain(int action_code, float[][] mfcc_data, float[][][] derivatives)
     {
         float[] mfcc        = flatten2DimArray(mfcc_data);

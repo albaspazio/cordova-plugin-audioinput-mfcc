@@ -63,12 +63,12 @@ public class AudioInputMfccPlugin extends CordovaPlugin
         mContext                = cordovaInterface.getActivity();
 
         bindService();
-
+        
         promptForRecordPermissions();
     }
     //======================================================================================================================
     //get Service interface    
-
+    
     private void bindService()
     {
         // bind service
@@ -86,6 +86,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
             mService            = binder.getService();
             mService.initService();
             mBound              = true;
+            Log.d(LOG_TAG, "========> Service Bounded <=========");
         }
 
         @Override
@@ -323,20 +324,6 @@ public class AudioInputMfccPlugin extends CordovaPlugin
         }
         isCapturingAllowed = true;
     }     
-
-    //=================================================================================================
-    public static class RETURN_TYPE
-    {
-        public static int CAPTURE_DATA          = 1; //
-        public static int CAPTURE_STOP          = 2; //
-        public static int CAPTURE_ERROR         = 3; //
-        public static int CAPTURE_START         = 4; //
-        public static int MFCC_DATA             = 10; //
-        public static int MFCC_PROGRESS_DATA    = 11; //
-        public static int MFCC_PROGRESS_FILE    = 12; //
-        public static int MFCC_PROGRESS_FOLDER  = 13; //
-        public static int MFCC_ERROR            = 14; //
-    }    
     //=================================================================================================
 }
 

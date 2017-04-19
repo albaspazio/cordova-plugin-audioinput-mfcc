@@ -6,11 +6,14 @@ import android.os.Message;
 import android.os.Bundle;
 
 import org.apache.cordova.CallbackContext;
+import android.util.Log;
 
+import com.allspeak.ENUMS;
 
 // not necessary
 import com.allspeak.audioprocessing.mfcc.MFCCParams;
 import com.allspeak.audioprocessing.mfcc.MFCC;
+
 
 /*
 it's a layer which call the MFCC functions on a new thread
@@ -23,13 +26,7 @@ sends the following messages to Plugin Activity:
 
 public class MFCCHandlerThread extends HandlerThread implements Handler.Callback
 {
-    private static final String TAG                 = "MFCCHandlerThread";
-    
-//    private static final int MSG_INIT               = 0;
-    public static final int MSG_GETMFCC_FILE       = 1;
-    public static final int MSG_GETMFCC_FOLDER     = 2;
-    public static final int MSG_GETMFCC_DATA       = 3;
-    public static final int MSG_GETMFCC_QUEUEDATA  = 4;
+    private static final String LOG_TAG = "MFCCHandlerThread";
     
     private Handler mHandler, mCallback;
     private CallbackContext mWlCb;
@@ -79,18 +76,18 @@ public class MFCCHandlerThread extends HandlerThread implements Handler.Callback
         float[] data;
         switch(msg.what)
         {
-            case MSG_GETMFCC_FILE:
+            case ENUMS.MFCC_GET_FILE:
                 sSource         = bundle.getString("source");
                 mfcc.processFile(sSource);
                 break;
 
-            case MSG_GETMFCC_FOLDER:
+            case ENUMS.MFCC_GET_FOLDER:
                 
                 sSource         = bundle.getString("source");
                 mfcc.processFolder(sSource);
                 break;
 
-            case MSG_GETMFCC_DATA:
+            case ENUMS.MFCC_GET_DATA:
                 
                 data            = bundle.getFloatArray("data");
                 if(bundle.getString("source") != null)
@@ -98,24 +95,24 @@ public class MFCCHandlerThread extends HandlerThread implements Handler.Callback
                 mfcc.processRawData(data);
                 break;
 
-            case MSG_GETMFCC_QUEUEDATA:
+            case ENUMS.MFCC_GET_QDATA:  
+            case ENUMS.CAPTURE_DATA:  
                     
                 data            = bundle.getFloatArray("data");
                 sSource         = bundle.getString("source");
                 
                 int nframes     = processQueueData(data); 
                 
-                mCallback.sendMessage(Message.obtain(null, MFCC.STATUS_PROCESSINGSTARTED, nframes));
+                mCallback.sendMessage(Message.obtain(null, ENUMS.MFCC_PROCESS_STARTED, nframes));
                 mfcc.processRawData(faData2Process);
                 break;
         }
         return true;
     }    
-    
-    
     //===============================================================================================
-    public Handler init()
+    public Handler getHandlerLooper()
     {
+        if(mHandler == null)   Log.w(LOG_TAG, "MFCCHandlerThread mHandler is NULL !!!!!!!!!!!!!!!!!");
         return mHandler;
     }
     public void setParams(MFCCParams params)
@@ -128,7 +125,9 @@ public class MFCCHandlerThread extends HandlerThread implements Handler.Callback
         mWlCb = wlcb;        
         mfcc.setWlCb(wlcb);
     }
-    
+    //===============================================================================================
+    // wrapper to thread execution 
+    //===============================================================================================
     // GET FROM folder or a file
     public void getMFCC(String source)
     {
@@ -142,7 +141,7 @@ public class MFCCHandlerThread extends HandlerThread implements Handler.Callback
                 bundle.putString("source", source);
                 message = mHandler.obtainMessage();
                 message.setData(bundle);
-                message.what    = MSG_GETMFCC_FILE;
+                message.what    = ENUMS.MFCC_GET_FILE;
                 mHandler.sendMessage(message);
                 break;
 
@@ -151,7 +150,7 @@ public class MFCCHandlerThread extends HandlerThread implements Handler.Callback
                 bundle.putString("source", source);
                 message = mHandler.obtainMessage();
                 message.setData(bundle);
-                message.what    = MSG_GETMFCC_FOLDER;
+                message.what    = ENUMS.MFCC_GET_FOLDER;
                 mHandler.sendMessage(message);
                 break;
         }        
@@ -160,12 +159,13 @@ public class MFCCHandlerThread extends HandlerThread implements Handler.Callback
     // GET FROM data array (a real-time stream)
     public void getMFCC(float[] source, String outfile)
     {
-        bundle = new Bundle();
+        bundle          = new Bundle();
         bundle.putString("source", outfile);
         bundle.putFloatArray("data", source);
+        
         Message message = mHandler.obtainMessage();
+        message.what    = ENUMS.MFCC_GET_DATA;
         message.setData(bundle);
-        message.what    = MSG_GETMFCC_DATA;
         mHandler.sendMessage(message);
     }
     
@@ -175,7 +175,7 @@ public class MFCCHandlerThread extends HandlerThread implements Handler.Callback
         bundle.putFloatArray("data", source);
         
         Message message = mHandler.obtainMessage();
-        message.what    = MSG_GETMFCC_DATA;
+        message.what    = ENUMS.MFCC_GET_DATA;
         message.setData(bundle);
         mHandler.sendMessage(message);
     }
@@ -186,7 +186,7 @@ public class MFCCHandlerThread extends HandlerThread implements Handler.Callback
         bundle.putFloatArray("data", source);
         
         Message message = mHandler.obtainMessage();
-        message.what    = MSG_GETMFCC_QUEUEDATA;
+        message.what    = ENUMS.MFCC_GET_QDATA;
         message.setData(bundle);
         mHandler.sendMessage(message);
     }     
