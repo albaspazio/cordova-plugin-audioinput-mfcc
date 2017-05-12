@@ -4,6 +4,8 @@ import org.json.JSONObject;
 import org.json.JSONArray;
 import org.json.JSONException;
 
+import com.allspeak.ENUMS;
+
 public class CFGParams
 {
     public int nSampleRate                  = DEFAULT.SAMPLERATE;         //44100,
@@ -13,10 +15,11 @@ public class CFGParams
     public String sFormat                   = DEFAULT.FORMAT;  //audioinput.FORMAT.PCM_16BIT,
     public int nConcatenateMaxChunks        = DEFAULT.CONCATENATE_MAX_CHUNKS;    
     public float fNormalizationFactor       = (float)DEFAULT.NORMALIZATION_FACTOR;    
-    public boolean bStartMFCC               = DEFAULT.START_MFCC;    
-    public boolean bStartVAD                = DEFAULT.START_VAD;   
     public int nDataDest                    = DEFAULT.DATADEST;
+    public int nDataSubSample               = DEFAULT.DATASUBSAMPLE;
  
+    public CFGParams(){}  
+    
     public CFGParams(JSONObject init)
     {
         try
@@ -50,14 +53,11 @@ public class CFGParams
                     case "fNormalizationFactor":
                         fNormalizationFactor    = (float)init.getDouble(field);
                         break;
-                    case "bStartMFCC":
-                        bStartMFCC              = init.getBoolean(field);
-                        break;
-                    case "bStartVAD":
-                        bStartVAD               = init.getBoolean(field);
-                        break;
                     case "nDataDest":
                         nDataDest               = init.getInt(field);
+                        break;                        
+                    case "nDataSubSample":
+                        nDataSubSample          = init.getInt(field);
                         break;                        
                 }
             }
@@ -67,17 +67,17 @@ public class CFGParams
             e.printStackTrace();
         }
     }
+    
     private static class DEFAULT
     {
-        public static int SAMPLERATE                = 8000;         //44100,
-        public static int AUDIOSOURCE_TYPE          = 7;            //audioinput.AUDIOSOURCE_TYPE.VOICE_COMMUNICATION,
-        public static int CHANNELS                  = 1;            //audioinput.CHANNELS.MONO,
-        public static String FORMAT                 = "PCM_16BIT";  //audioinput.FORMAT.PCM_16BIT,
+        public static int SAMPLERATE                = 8000;                         //44100,
+        public static int AUDIOSOURCE_TYPE          = 7;                            //audioinput.AUDIOSOURCE_TYPE.VOICE_COMMUNICATION,
+        public static int CHANNELS                  = 1;                            //audioinput.CHANNELS.MONO,
+        public static String FORMAT                 = "PCM_16BIT";                  //audioinput.FORMAT.PCM_16BIT,
         public static int BUFFER_SIZE               = 16384;
         public static int CONCATENATE_MAX_CHUNKS    = 10;
         public static double NORMALIZATION_FACTOR   = 32767.0;
-        public static boolean START_MFCC            = false;
-        public static boolean START_VAD             = false;
-        public static int DATADEST                  = 1;
+        public static int DATADEST                  = ENUMS.CAPTURE_DATADEST_JS_RAW;    // return data to WebLayer
+        public static int DATASUBSAMPLE             = 1;                            // do not apply subsampling rate (for data sent back to weblayer)
     }    
 }

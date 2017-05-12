@@ -21,10 +21,16 @@ import android.util.Log;
 import android.content.pm.PackageManager;
 import android.Manifest;
 
+import com.allspeak.ERRORS;
+import com.allspeak.ENUMS;
+import com.allspeak.MFCCService;
+import com.allspeak.MFCCService.LocalBinder;
+import com.allspeak.utility.Messaging;
 import com.allspeak.audioprocessing.mfcc.MFCCParams;
 import com.allspeak.audiocapture.CFGParams;
 import com.allspeak.audiocapture.*;
-import com.allspeak.MFCCService.LocalBinder;
+
+
 
 public class AudioInputMfccPlugin extends CordovaPlugin
 {
@@ -84,7 +90,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
             // We've bound to LocalService, cast the IBinder and get LocalService instance
             LocalBinder binder  = (LocalBinder) service;
             mService            = binder.getService();
-            mService.initService();
+            String res          = mService.initService();  // if(res != "ok") dont' know how to inform web layer
             mBound              = true;
             Log.d(LOG_TAG, "========> Service Bounded <=========");
         }
@@ -115,18 +121,18 @@ public class AudioInputMfccPlugin extends CordovaPlugin
     {
         callbackContext = _callbackContext;
         
-        if(mService == null)
-        {    
-            bindService();
-            sendErrorString2Web("MFCC service is down....retry", true);
-            return false;
-        }
+//        if(mService == null)
+//        {    
+//            bindService();
+//            sendErrorString2Web("MFCC service is down....retry", true);
+//            return false;
+//        }
         
         if (action.equals("startCapture")) 
         {
             if(mService.isCapturing())
             {
-                _callbackContext.error( "AudioInputMfccPlugin : plugin is already capturing.");
+                Messaging.sendErrorString2Web(callbackContext, "SpeechRecognitionPlugin : plugin is already capturing.", ERRORS.CAPTURE_ALREADY_STARTED, true);
                 return true;
             }
             try 
@@ -135,20 +141,21 @@ public class AudioInputMfccPlugin extends CordovaPlugin
                 if(!args.isNull(1))  mMfccParams = new MFCCParams(new JSONObject((String)args.get(1))); 
                 
                 mService.startCapture(mCfgParams, mMfccParams, callbackContext);
-                sendNoResult2Web();
+                Messaging.sendNoResult2Web(callbackContext);
+                return true;
             }
             catch (Exception e) 
             {
-                sendErrorString2Web(e.toString(), true);
+                Messaging.sendErrorString2Web(callbackContext, e.toString(), ERRORS.PLUGIN_INIT_CAPTURE, true);
                 callbackContext = null;
-                return false;
+                return true;
             }
         }
         else if (action.equals("startMicPlayback")) 
         {
             if(mService.isCapturing())
             {
-                _callbackContext.error( "AudioInputMfccPlugin : plugin is already capturing.");
+                Messaging.sendErrorString2Web(callbackContext, "SpeechRecognitionPlugin : plugin is already capturing.", ERRORS.CAPTURE_ALREADY_STARTED, true);
                 return true;
             }
             try 
@@ -156,13 +163,14 @@ public class AudioInputMfccPlugin extends CordovaPlugin
                 mCfgParams = new CFGParams(new JSONObject((String)args.get(0))); 
                 
                 mService.startMicPlayback(mCfgParams, callbackContext);
-                sendNoResult2Web();
+                Messaging.sendNoResult2Web(callbackContext);
+                return true;
             }
             catch (Exception e) 
             {
-                sendErrorString2Web(e.toString(), true);
+                Messaging.sendErrorString2Web(callbackContext, e.toString(), ERRORS.PLUGIN_INIT_PLAYBACK ,true);
                 callbackContext = null;
-                return false;
+                return true;
             }            
         }  
         else if (action.equals("setPlayBackPercVol")) 
@@ -175,13 +183,15 @@ public class AudioInputMfccPlugin extends CordovaPlugin
                 
                 mService.setPlayBackPercVol(newperc, callbackContext);
             }   
-            sendNoResult2Web();
+            Messaging.sendNoResult2Web(callbackContext);
+            return true;
         }        
         else if (action.equals("stopCapture")) 
         {
             // an interrupt command is sent to audioreceiver, when it exits from its last cycle, it sends an event here
             mService.stopCapture(callbackContext);
-            sendNoResult2Web();
+            Messaging.sendNoResult2Web(callbackContext);
+            return true;
         } 
         else if(action.equals("getMFCC")) 
         {            
@@ -193,16 +203,17 @@ public class AudioInputMfccPlugin extends CordovaPlugin
                 String inputpathnoext   = args.getString(1); 
                 
                 mService.getMFCC(mMfccParams, inputpathnoext, callbackContext);
-                sendNoResult2Web();
+                Messaging.sendNoResult2Web(callbackContext);
+                return true;
             }
             catch (Exception e) 
             {
-                callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, e.toString()));
+                Messaging.sendErrorString2Web(callbackContext, e.toString(), ERRORS.PLUGIN_INIT_MFCC, true);
                 callbackContext = null;
-                return false;
+                return true;
             }            
         }        
-        return true;
+        return false;
     }
     
     @Override
@@ -242,61 +253,6 @@ public class AudioInputMfccPlugin extends CordovaPlugin
 //    @Override
 //    public void onNewIntent(Intent intent) {
 //    }
-    
-    //===================================================================================================
-    // CALLBACK TO WEB LAYER  (JAVA => JS)
-    //===================================================================================================
-    /**
-     * Create a new plugin result and send it back to JavaScript
-     */
-//    public void sendUpdate2Web(JSONObject info, boolean keepCallback) {
-//        if (callbackContext != null) {
-//            PluginResult result = new PluginResult(PluginResult.Status.OK, info);
-//            result.setKeepCallback(keepCallback);
-//            callbackContext.sendPluginResult(result);
-//        }
-//    }
-    /**
-     * Create a NO RESULT plugin result and send it back to JavaScript
-     */
-    private void sendNoResult2Web() {
-        if (callbackContext != null) {
-            PluginResult pluginResult = new PluginResult(PluginResult.Status.NO_RESULT);
-            pluginResult.setKeepCallback(true);
-            callbackContext.sendPluginResult(pluginResult);
-        }
-    }
-    /**
-     * Create a new plugin result and send it back to JavaScript
-     */
-//    private void sendError2Web(JSONObject info, boolean keepCallback) {
-//        if (callbackContext != null) {
-//            PluginResult result = new PluginResult(PluginResult.Status.ERROR, info);
-//            result.setKeepCallback(keepCallback);
-//            callbackContext.sendPluginResult(result);
-//        }
-//    }  
-    
-    /**
-     * Create a new plugin result and send it back to JavaScript
-     */
-    private void sendErrorString2Web(String msg, boolean keepCallback) 
-    {
-        if (callbackContext != null) 
-        {
-            try
-            {
-                JSONObject info = new JSONObject(); info.put("error", msg);
-                PluginResult result = new PluginResult(PluginResult.Status.ERROR, info);
-                result.setKeepCallback(keepCallback);
-                callbackContext.sendPluginResult(result);
-            }
-            catch(JSONException e)
-            {
-                e.printStackTrace();                  
-            }
-        }
-    }  
     //=================================================================================================
     // GET RECORDING PERMISSIONS
     //=================================================================================================        
@@ -317,13 +273,14 @@ public class AudioInputMfccPlugin extends CordovaPlugin
         {
             if(r == PackageManager.PERMISSION_DENIED) 
             {
-                sendErrorString2Web("RECORDING_PERMISSION_DENIED_ERROR", true);
+                Messaging.sendErrorString2Web(callbackContext, "RECORDING_PERMISSION_DENIED_ERROR", true);
                 isCapturingAllowed = false;
                 return;
             }
         }
         isCapturingAllowed = true;
     }     
+
     //=================================================================================================
 }
 

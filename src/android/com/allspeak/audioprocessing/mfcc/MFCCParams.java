@@ -4,29 +4,11 @@ import org.json.JSONObject;
 import org.json.JSONArray;
 import org.json.JSONException;
 
+import com.allspeak.ENUMS;
 
 // only the classic parameters used by MFCCCalcJAudio
 public class MFCCParams
 {
-    
-    // map objects in the javascript interface
-    public static final int DATATYPE_MFCC       = 1;
-    public static final int DATATYPE_MFFILTERS  = 2;
-    
-    public static final int DATADEST_NONE       = 0;    // data(float[][])=> PLUGIN
-    public static final int DATADEST_JSPROGRESS = 1;    // data=> PLUGIN + progress(filename)=> WEB
-    public static final int DATADEST_JSDATA     = 2;    // data=> PLUGIN + progress(filename) + data(JSONArray)=> WEB
-    public static final int DATADEST_JSDATAWEB  = 3;    // data(JSONArray)=> WEB
-    public static final int DATADEST_FILE       = 4;    // progress(filename)=> PLUGIN + data(String)=> FILE
-    public static final int DATADEST_FILEWEB    = 5;    // progress(filename)=> PLUGIN + data(String)=> FILE + data(JSONArray)=> WEB
-    public static final int DATADEST_ALL        = 6;    // data=> PLUGIN + data(String)=> FILE + data(JSONArray)=> WEB
-    
-    public static final int DATAORIGIN_JSONDATA = 1;
-    public static final int DATAORIGIN_FILE     = 2;
-    public static final int DATAORIGIN_FOLDER   = 3;
-    public static final int DATAORIGIN_RAWDATA  = 4;  
-    
-    
     public int nNumberOfMFCCParameters      = 12; //without considering 0-th
     public double dSamplingFrequency        = 8000.0;
     public int nNumberofFilters             = 24;
@@ -36,11 +18,12 @@ public class MFCCParams
     public boolean bCalculate0ThCoeff       = true;   
     public int nWindowDistance              = 80;   
     public int nWindowLength                = 200;   
-    public int nDataType                    = DATATYPE_MFFILTERS; 
-    public int nDataDest                    = DATADEST_NONE;    
-    public int nDataOrig                    = DATAORIGIN_RAWDATA;    
+    public int nDataType                    = ENUMS.MFCC_DATATYPE_MFFILTERS; 
+    public int nDataDest                    = ENUMS.MFCC_DATADEST_NOCALC;    
+    public int nDataOrig                    = ENUMS.MFCC_DATAORIGIN_RAWDATA;    
     public String sOutputPath               = "";    
     public int nDeltaWindow                 = 2;    // values used in getDerivatives
+    public int nContextFrames               = 11;   // value used to  
 
     //derived
     public int nData2Reprocess              = 120;  // last part of the processed vector, that must be the first part of the new one.
@@ -101,6 +84,9 @@ public class MFCCParams
                         break;                        
                     case "nDeltaWindow":
                         nDeltaWindow            = init.getInt(field);
+                        break;                        
+                    case "nContextFrames":
+                        nContextFrames          = init.getInt(field);
                         break;                        
                 }
             }//end for

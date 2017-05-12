@@ -1,12 +1,15 @@
 package com.allspeak.audiocapture;
 
 import org.apache.cordova.CordovaPlugin;
+import org.apache.cordova.CallbackContext;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import android.os.Handler;
-import android.os.Message;
-import android.os.Bundle;
 
 import com.allspeak.ENUMS;
+import com.allspeak.ERRORS;
+import com.allspeak.utility.Messaging;
 //=========================================================================================================================
 public class AudioInputCapture
 {
@@ -21,61 +24,59 @@ public class AudioInputCapture
     private int nMode                           = ENUMS.CAPTURE_MODE;
     
     private boolean bIsCapturing                = false;
-    private Handler mParentHandler              = null;
-    private Handler mSecondHandler              = null;
-    private Message message;
-    private Bundle messageBundle                = new Bundle();    
- 
+    private Handler mStatusCallback             = null;   // destination handler of status messages
+    private Handler mResultCallback             = null;   // destination handler of data result
+    private Handler mCommandCallback            = null;   // destination handler of output command
+    private CallbackContext mWlCb               = null;   // access to web layer 
     //======================================================================================================================
-    public AudioInputCapture(CFGParams params, Handler phandl)
+    public AudioInputCapture(CFGParams params, Handler cb)
     {
         cfgParams       = params;
-        mParentHandler  = phandl;
-        mSecondHandler  = null;
+        mStatusCallback     = cb;        
+        mCommandCallback    = cb;        
+        mResultCallback     = cb;  
     } 
-    
+    public AudioInputCapture(CFGParams params, Handler scb, Handler ccb, Handler rcb)
+    {
+        cfgParams       = params;
+        mStatusCallback     = scb;        
+        mCommandCallback    = ccb;        
+        mResultCallback     = rcb;  
+    } 
     public AudioInputCapture(CFGParams params, Handler phandl, CordovaPlugin _plugin)
     {
         this(params, phandl);
         plugin      = _plugin;
     }    
-    
     public AudioInputCapture(CFGParams params, Handler phandl, int mode)
     {
         this(params, phandl);
         nMode = mode;
     }     
-    
     public AudioInputCapture(CFGParams params, Handler phandl, CordovaPlugin _plugin, int mode)
     {
         this(params, phandl, _plugin);
         nMode = mode;
     }     
-    
-    
-    public AudioInputCapture(CFGParams params, Handler phandl, Handler shandl)
+    public AudioInputCapture(CFGParams params, Handler scb, Handler ccb, Handler rcb, CordovaPlugin _plugin)
     {
-        cfgParams       = params;
-        mParentHandler  = phandl;
-        mSecondHandler  = shandl;
-    } 
-    
-    public AudioInputCapture(CFGParams params, Handler phandl, Handler shandl, CordovaPlugin _plugin)
-    {
-        this(params, phandl, shandl);
+        this(params, scb, ccb, rcb);
         plugin      = _plugin;
-    }       
-    
-    public AudioInputCapture(CFGParams params, Handler phandl, Handler shandl, int mode)
+    } 
+    public AudioInputCapture(CFGParams params, Handler scb, Handler ccb, Handler rcb, int mode)
     {
-        this(params, phandl,shandl);
+        this(params, scb, ccb, rcb);
+        nMode = mode;
+    }       
+    public AudioInputCapture(CFGParams params, Handler scb, Handler ccb, Handler rcb, CordovaPlugin _plugin, int mode)
+    {
+        this(params, scb, ccb, rcb, _plugin);
         nMode = mode;
     }    
     
-    public AudioInputCapture(CFGParams params, Handler phandl, Handler shandl, CordovaPlugin _plugin, int mode)
+    public void setWlCb(CallbackContext wlcb)
     {
-        this(params, phandl, shandl, _plugin);
-        nMode = mode;
+        mWlCb = wlcb;        
     }    
     //======================================================================================================================
     
@@ -88,7 +89,7 @@ public class AudioInputCapture
                 case ENUMS.CAPTURE_MODE:
 
                     mAIReceiver = new AudioInputReceiver(cfgParams.nSampleRate, cfgParams.nBufferSize, cfgParams.nChannels, cfgParams.sFormat, cfgParams.nAudioSourceType);
-                    mAIReceiver.setHandler(mParentHandler, mSecondHandler);
+                    mAIReceiver.setHandler(mStatusCallback, mCommandCallback, mResultCallback);
                     mAIReceiver.start();   
                     bIsCapturing = true;
                     break;
@@ -96,7 +97,8 @@ public class AudioInputCapture
                 case ENUMS.PLAYBACK_MODE:
 
                     mPlayback = new AudioPlayback(cfgParams.nSampleRate, cfgParams.nBufferSize, cfgParams.nChannels, cfgParams.sFormat, cfgParams.nAudioSourceType);
-                    mAIReceiver.setHandler(mParentHandler, mSecondHandler);
+                    mPlayback.setHandler(mStatusCallback, mCommandCallback, mResultCallback);
+                    mPlayback.setWlCb(mWlCb);
                     mPlayback.start();   
                     bIsCapturing = true;                
             }            
@@ -105,7 +107,7 @@ public class AudioInputCapture
         catch(Exception e)
         {
             e.printStackTrace();
-            sendMessageToHandler(ENUMS.CAPTURE_ERROR, "error", e.toString());
+            Messaging.sendMessageToHandler(mStatusCallback, ERRORS.CAPTURE_ERROR, "error", e.toString());
             return false;            
         }
     }
@@ -129,7 +131,7 @@ public class AudioInputCapture
         }
         catch (Exception e) 
         {
-            sendMessageToHandler(ENUMS.CAPTURE_ERROR, "error", e.toString());
+            Messaging.sendMessageToHandler(mStatusCallback, ERRORS.CAPTURE_ERROR, "error", e.toString());
         }        
     }
     
@@ -144,15 +146,55 @@ public class AudioInputCapture
             mPlayback.setPlayBackPercVol(perc);
     }
     
-    //======================================================================================================================
-    // PRIVATE
-    //======================================================================================================================
-    private void sendMessageToHandler(int action_code, String field, String str)
+    //========================================================================================
+    // ACCESSORY STATIC FUNCTIONS
+    //========================================================================================
+    public static float[] normalizeAudio(short[] pcmData, float normFactor) 
     {
-        message = mParentHandler.obtainMessage();
-        messageBundle.putString(field, str);
-        message.setData(messageBundle);
-        message.what    = action_code;
-        mParentHandler.sendMessage(message);        
+        int len         = pcmData.length;
+        float[] data    = new float[len];
+        for (int i = 0; i < len ; i++) {
+            data[i]     = (float)(pcmData[i]/normFactor);
+        }
+//        // If last value is NaN, remove it.
+//        if (Float.isNaN(data[data.length - 1])) {data = ArrayUtils.remove(data, data.length - 1);}
+        return data;
     }
+
+    /**
+     * @param audioBuffer
+     * @private
+     * @returns {*}
+     */
+    public static float getAudioLevels(float[] audioBuffer) 
+    {
+        try 
+        {
+            float total = 0;
+            int length  = audioBuffer.length;
+            float absFreq;
+
+            for (int i = 0; i < length; i++) 
+            {
+                absFreq = Math.abs(audioBuffer[i]);
+                total += ( absFreq * absFreq );
+            }
+            return (float)Math.sqrt(total / length);
+        }
+        catch (Exception e) {
+            throw e;
+        }
+    }    
+    
+    /**
+     * Convert amplitude to decibel
+     *
+     * @param amplitudeLevel
+     * @returns {number}
+     * @private
+     */
+    public static float getDecibelFromAmplitude(float amplitudeLevel) {
+        return (float) (20*Math.log10(amplitudeLevel));
+    }    
+    //========================================================================================
 }

@@ -36,6 +36,7 @@
         <source-file src="src/android/com/allspeak/AudioInputMfccPlugin.java" target-dir="src/com/allspeak" />
         <source-file src="src/android/com/allspeak/MFCCService.java" target-dir="src/com/allspeak" />
         <source-file src="src/android/com/allspeak/ENUMS.java" target-dir="src/com/allspeak" />
+        <source-file src="src/android/com/allspeak/ERRORS.java" target-dir="src/com/allspeak" />
         <source-file src="src/android/com/allspeak/audiocapture/AudioInputCapture.java" target-dir="src/com/allspeak/audiocapture" />
         <source-file src="src/android/com/allspeak/audiocapture/AudioInputReceiver.java" target-dir="src/com/allspeak/audiocapture" />
         <source-file src="src/android/com/allspeak/audiocapture/AudioPlayback.java" target-dir="src/com/allspeak/audiocapture" />
@@ -48,6 +49,7 @@
         <source-file src="src/android/com/allspeak/audioprocessing/mfcc/MFCCParams.java" target-dir="src/com/allspeak/audioprocessing/mfcc" />
         <source-file src="src/android/com/allspeak/utility/StringUtility.java" target-dir="src/com/allspeak/utility/" />   
         <source-file src="src/android/com/allspeak/utility/TrackPerformance.java" target-dir="src/com/allspeak/utility/" />   
+        <source-file src="src/android/com/allspeak/utility/Messaging.java" target-dir="src/com/allspeak/utility/" />   
 
     </platform>
 
