@@ -344,7 +344,7 @@ public class MFCCCalcJAudio {
                 temp    = getParameters(buffer); 
                 int len = temp.length;
                 System.arraycopy(temp, 0, faMFCC[f], 0, len);
-    }
+            }
             // during the last frame i may fill with blanks
             for (int j = 0; j < m_nWindowLength; j++)
             {

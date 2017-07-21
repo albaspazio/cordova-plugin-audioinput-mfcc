@@ -68,18 +68,18 @@ public class AudioInputMfccPlugin extends CordovaPlugin
         cordovaInterface        = cordova;
         mContext                = cordovaInterface.getActivity();
 
-        bindService();
+        boolean conn = bindService();
         
         promptForRecordPermissions();
     }
     //======================================================================================================================
     //get Service interface    
     
-    private void bindService()
+    private boolean bindService()
     {
         // bind service
         Intent bindIntent = new Intent(mContext, MFCCService.class);  // Binding.this instead of mContext in the official sample.
-        mContext.bindService(bindIntent, mConnection, Context.BIND_AUTO_CREATE);        
+        return mContext.bindService(bindIntent, mConnection, Context.BIND_AUTO_CREATE);        
     }
 
     private ServiceConnection mConnection = new ServiceConnection() 

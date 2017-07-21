@@ -24,7 +24,8 @@ import android.os.ResultReceiver;
 import com.allspeak.ENUMS;
 import com.allspeak.ERRORS;
 import com.allspeak.audioprocessing.WavFile;
-import com.allspeak.utility.StringUtility;
+import com.allspeak.utility.StringUtilities;
+
 import com.allspeak.utility.Messaging;
 
 import com.allspeak.utility.TrackPerformance;
@@ -256,7 +257,7 @@ public class MFCC
             for (int i = 0; i < files.length; i++)
             {
                 tempfile            = input_folderpath + File.separatorChar + files[i].getName();
-                processFile(StringUtility.removeExtension(tempfile));
+                processFile(StringUtilities.removeExtension(tempfile));
             }   
 //            sendMessageToMain(ENUMS.MFCC_STATUS_PROGRESS_FOLDER, "progress_folder", mfccParams.sOutputPath);          
             // BUG....it doesn't work...since the last-1 file, in the target I get a Bundle with either process_file and process_folder messages
@@ -409,7 +410,7 @@ public class MFCC
         {
             try
             {   
-                String output_file_noext = StringUtility.removeExtension(output_file);
+                String output_file_noext = StringUtilities.removeExtension(output_file);
                 res = writeFile(output_file_noext + "_label.dat", label);
                 if(res) Log.d(TAG, "writeTextParamsLabel: written file " + output_file_noext + "_label.dat");            
             }
