@@ -5,9 +5,9 @@ package com.allspeak.utility;
 import java.util.Arrays;
 
 
-public class StringUtility 
+public class StringUtilities 
 {
-    private static final String TAG = "StringUtility";
+    private static final String TAG = "StringUtilities";
     
     //--------------------------------------------------------------------------------------------------------------------    
     public static String removeExtension(String filepath)
@@ -103,34 +103,3 @@ public class StringUtility
         return final_parts;
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-//    private int nNumberOfMFCCParameters     = 12; //without considering 0-th
-//    private double dSamplingFrequency       = 8000.0;
-//    private int nNumberofFilters            = 24;
-//    private int nWindowLength               = 256;    
-//    private boolean bIsLifteringEnabled     = true;
-//    private int nLifteringCoefficient       = 22;
-//    private boolean bCalculate0ThCoeff      = false;   
-//    private int nWindowDistance             = 64;   
-
-
-        
-//        nNumberOfMFCCParameters    = args.getInt(0);//12; //without considering 0-th
-//        dSamplingFrequency         = args.getDouble(1);//8000.0;
-//        nNumberofFilters           = args.getInt(2);//24;
-//        nWindowLength              = args.getInt(3);//512;    
-//        bIsLifteringEnabled        = args.getBoolean(4); //true;
-//        nLifteringCoefficient      = args.getInt(5);//22;
-//        bCalculate0ThCoeff         = args.getBoolean(6); //false;   
-//        nWindowDistance            = args.getInt(7); //false;   
-        

@@ -11,16 +11,99 @@ audioinput.ENUM.capture = {};
 audioinput.ENUM.mfcc    = {};
 
 
-audioinput.ENUM.RETURN  = {
-    CAPTURE_DATA          : 1, //
-    CAPTURE_STOP          : 2, //
-    CAPTURE_ERROR         : 3, //
-    MFCC_DATA             : 10, //
-    MFCC_PROGRESS_DATA    : 11, //
-    MFCC_PROGRESS_FILE    : 12, //
-//    MFCC_PROGRESS_FOLDER  : 13, //   suspended for a bug
-    MFCC_ERROR            : 14 //
+//=====================================================================================================
+// PLUGIN RETURN VALUES
+//=====================================================================================================
+// MUST MAP a plugin's ENUMS.java subset
+// it maps:
+//      1) native=>js events (results & statuses)
+//      2) native behaviour  (data origin - destination - type - return type  etc..)
+//      
+//      (results & statuses, excluding internal CMD & enums)
+audioinput.ENUM.PLUGIN   = 
+{
+    CAPTURE_STATUS_STARTED          : 11, 
+    CAPTURE_RESULT                  : 12, 
+    CAPTURE_STATUS_STOPPED          : 13, 
+
+    SPEECH_STATUS_STARTED           : 20,
+    SPEECH_STATUS_STOPPED           : 21,
+    SPEECH_STATUS_SENTENCE          : 22,
+    SPEECH_STATUS_MAX_LENGTH        : 23,
+    SPEECH_STATUS_MIN_LENGTH        : 24,
+    
+    MFCC_RESULT                     : 40,
+    MFCC_STATUS_PROGRESS_DATA       : 31,
+    MFCC_STATUS_PROGRESS_FILE       : 32,
+    MFCC_STATUS_PROGRESS_FOLDER     : 33, //   suspended for a bug
+    
+    TF_STATUS_PROCESS_STARTED       : 60,
+    TF_RESULT                       : 62,
+    
+    CAPTURE_DATADEST_NONE           : 200,
+    CAPTURE_DATADEST_JS_RAW         : 201,
+    CAPTURE_DATADEST_JS_DB          : 202,    
+    CAPTURE_DATADEST_JS_RAWDB       : 203,    
+    
+    CAPTURE_MODE                    : 211,
+    PLAYBACK_MODE                   : 212,
+
+    MFCC_DATADEST_NOCALC            : 230,    // DO NOT CALCULATE MFCC during capture
+    MFCC_DATADEST_NONE              : 231,    // data(float[][])=> PLUGIN
+    MFCC_DATADEST_JSPROGRESS        : 232,    // data=> PLUGIN + progress(filename)=> WEB
+    MFCC_DATADEST_JSDATA            : 233,    // data=> PLUGIN + progress(filename) + data(JSONArray)=> WEB
+    MFCC_DATADEST_JSDATAWEB         : 234,    // data(JSONArray)=> WEB
+    MFCC_DATADEST_FILE              : 235,    // progress(filename)=> PLUGIN + data(String)=> FILE
+    MFCC_DATADEST_FILEWEB           : 236,    // progress(filename)=> PLUGIN + data(String)=> FILE + data(JSONArray)=> WEB
+    MFCC_DATADEST_ALL               : 237,    // data=> PLUGIN + data(String)=> FILE + data(JSONArray)=> WEB
+    
+    MFCC_DATAORIGIN_JSONDATA        : 240,
+    MFCC_DATAORIGIN_FILE            : 241,
+    MFCC_DATAORIGIN_FOLDER          : 242,
+    MFCC_DATAORIGIN_RAWDATA         : 243,   
+    
+    MFCC_DATATYPE_MFPARAMETERS      : 250,
+    MFCC_DATATYPE_MFFILTERS         : 251       
+    
+    
 }; 
+
+// MUST MAP plugin's ERRORS.java
+audioinput.ENUM.ERRORS   = 
+{
+    SERVICE_INIT                    : 100, 
+    
+    INVALID_PARAMETER               : 101, 
+    MISSING_PARAMETER               : 102, 
+    ENCODING_ERROR                  : 103, 
+    
+    CAPTURE_ERROR                   : 110, 
+    PLUGIN_INIT_CAPTURE             : 111, 
+    SERVICE_INIT_CAPTURE            : 112, 
+    PLUGIN_INIT_PLAYBACK            : 113,    
+    SERVICE_INIT_PLAYBACK           : 114,    
+    CAPTURE_ALREADY_STARTED         : 115, 
+    
+    VAD_ERROR                       : 120,
+    PLUGIN_INIT_RECOGNITION         : 121,
+    SERVICE_INIT_RECOGNITION        : 122,
+    
+    MFCC_ERROR                      : 130, 
+    PLUGIN_INIT_MFCC                : 131,
+    SERVICE_INIT_MFCC               : 132,
+    
+    TF_ERROR                        : 150, 
+   
+    UNSPECIFIED                     : 999
+}; 
+
+//=====================================================================================================
+// ENUMS
+//=====================================================================================================
+audioinput.ENUM.capture  = {};
+audioinput.ENUM.mfcc     = {};
+audioinput.ENUM.vad      = {};
+audioinput.ENUM.tf       = {};
 
 // Supported audio formats
 audioinput.ENUM.capture.FORMAT = {
@@ -28,6 +111,7 @@ audioinput.ENUM.capture.FORMAT = {
     PCM_8BIT            : 'PCM_8BIT'
 };
 
+// Possible channels num
 audioinput.ENUM.capture.CHANNELS = {
     MONO                : 1,
     STEREO              : 2
@@ -45,6 +129,15 @@ audioinput.ENUM.capture.SAMPLERATE = {
     CD_AUDIO_44100Hz    : 44100
 };
 
+// Buffer Size
+audioinput.ENUM.capture.BUFFER_SIZES = {
+    BS_256              : 256,
+    BS_512              : 512,
+    BS_1024             : 1024,
+    BS_2048             : 2048,
+    BS_4096             : 4096
+};
+
 // Audio Source types
 audioinput.ENUM.capture.AUDIOSOURCE_TYPE = {
     DEFAULT             : 0,
@@ -55,41 +148,19 @@ audioinput.ENUM.capture.AUDIOSOURCE_TYPE = {
     VOICE_RECOGNITION   : 6
 };
 
+//-----------------------------------------------------------------------------------------------------
 // Default values
+//-----------------------------------------------------------------------------------------------------
 audioinput.ENUM.capture.DEFAULT = {
     SAMPLERATE              : audioinput.ENUM.capture.SAMPLERATE.TELEPHONE_8000Hz,
-    BUFFER_SIZE             : 1024,
+    BUFFER_SIZE             : audioinput.ENUM.capture.BUFFER_SIZES.BS_1024,
     CHANNELS                : audioinput.ENUM.capture.CHANNELS.MONO,
     FORMAT                  : audioinput.ENUM.capture.FORMAT.PCM_16BIT,
+    AUDIOSOURCE_TYPE        : audioinput.ENUM.capture.AUDIOSOURCE_TYPE.DEFAULT,
     NORMALIZE               : true,
     NORMALIZATION_FACTOR    : 32767.0,
-    STREAM_TO_WEBAUDIO      : false,
     CONCATENATE_MAX_CHUNKS  : 10,
-    AUDIOSOURCE_TYPE        : audioinput.ENUM.capture.AUDIOSOURCE_TYPE.DEFAULT,
-    START_MFCC              : false,
-    START_VAD               : false
-};
-
-audioinput.ENUM.mfcc.DATATYPE={
-    FCC         : 1,
-    MFFILTERS   : 2
-};
-
-audioinput.ENUM.mfcc.DATAORIGIN={
-    JSONDATA    : 1,
-    FILE        : 2,
-    FOLDER      : 3,
-    RAWDATA     : 4
-};
-
-audioinput.ENUM.mfcc.DATADEST={
-    NONE        : 0,
-    JSPROGRESS  : 1,
-    JSDATA      : 2,
-    JSDATAWEB   : 3,    //   send progress(filename) + data(JSONArray) to WEB
-    FILE        : 4,
-    FILEWEB     : 5,    //   send progress(filename) + write data(String) to file
-    ALL         : 6
+    DATA_DEST               : audioinput.ENUM.PLUGIN.CAPTURE_DATADEST_JS_DB
 };
 
 audioinput.ENUM.mfcc.DEFAULT = {
@@ -102,36 +173,19 @@ audioinput.ENUM.mfcc.DEFAULT = {
     bCalculate0ThCoeff      : true,
     nWindowDistance         : 80,
     nWindowLength           : 200,
-    nDataType               : audioinput.ENUM.mfcc.DATATYPE.MFFILTERS,
-    nDataDest               : audioinput.ENUM.mfcc.DATADEST.NONE,
-    nDataOrig               : audioinput.ENUM.mfcc.DATAORIGIN.RAWDATA,
-    sOutputPath             : ""
+    nDataType               : audioinput.ENUM.PLUGIN.MFCC_DATATYPE_MFFILTERS,
+    nDataDest               : audioinput.ENUM.PLUGIN.MFCC_DATADEST_NOCALC,
+    nDataOrig               : audioinput.ENUM.PLUGIN.MFCC_DATAORIGIN_RAWDATA,
+    sOutputPath             : "",
+    nContextFrames          : 11
 };
+//-----------------------------------------------------------------------------------------------------
 
 audioinput.mfcc = {};
 audioinput.mfcc.params = {};
 
 audioinput.capture = {};
 audioinput.capture.params = {};
-
-audioinput.checkMfccParams = function(mfcc_params)
-{
-    audioinput.mfcc.params.nNumberOfMFCCParameters      = mfcc_params.nNumberOfMFCCParameters   || audioinput.ENUM.mfcc.DEFAULT.nNumberOfMFCCParameters; //without considering 0-th  
-    audioinput.mfcc.params.dSamplingFrequency           = mfcc_params.dSamplingFrequency        || audioinput.ENUM.mfcc.DEFAULT.dSamplingFrequency;    
-    audioinput.mfcc.params.nNumberofFilters             = mfcc_params.nNumberofFilters          || audioinput.ENUM.mfcc.DEFAULT.nNumberofFilters;    
-    audioinput.mfcc.params.nFftLength                   = mfcc_params.nFftLength                || audioinput.ENUM.mfcc.DEFAULT.nFftLength;      
-    audioinput.mfcc.params.bIsLifteringEnabled          = mfcc_params.bIsLifteringEnabled       || audioinput.ENUM.mfcc.DEFAULT.bIsLifteringEnabled ;    
-    audioinput.mfcc.params.nLifteringCoefficient        = mfcc_params.nLifteringCoefficient     || audioinput.ENUM.mfcc.DEFAULT.nLifteringCoefficient;
-    audioinput.mfcc.params.bCalculate0ThCoeff           = mfcc_params.bCalculate0ThCoeff        || audioinput.ENUM.mfcc.DEFAULT.bCalculate0ThCoeff;
-    audioinput.mfcc.params.nWindowDistance              = mfcc_params.nWindowDistance           || audioinput.ENUM.mfcc.DEFAULT.nWindowDistance;
-    audioinput.mfcc.params.nWindowLength                = mfcc_params.nWindowLength             || audioinput.ENUM.mfcc.DEFAULT.nWindowLength;          
-    audioinput.mfcc.params.nDataType                    = mfcc_params.nDataType                 || audioinput.ENUM.mfcc.DEFAULT.nDataType;          
-    audioinput.mfcc.params.nDataDest                    = mfcc_params.nDataDest                 || audioinput.ENUM.mfcc.DEFAULT.nDataDest;          
-    audioinput.mfcc.params.nDataOrig                    = mfcc_params.nDataOrig                 || audioinput.ENUM.mfcc.DEFAULT.nDataOrig;          
-    audioinput.mfcc.params.sOutputPath                  = mfcc_params.sOutputPath               || audioinput.ENUM.mfcc.DEFAULT.sOutputPath;          
-    
-    return JSON.stringify(audioinput.mfcc.params); 
-};
 
 audioinput.checkCaptureParams = function(capture_params)
 {
@@ -141,12 +195,9 @@ audioinput.checkCaptureParams = function(capture_params)
     audioinput.capture.params.sFormat                   = capture_params.sFormat                || audioinput.ENUM.capture.DEFAULT.FORMAT;
     audioinput.capture.params.nAudioSourceType          = capture_params.nAudioSourceType       || 0;
     audioinput.capture.params.nNormalize                = typeof capture_params.nNormalize == 'boolean' ? audioinput.ENUM.capture.nNormalize : audioinput.ENUM.capture.DEFAULT.NORMALIZE;
-    audioinput.capture.params.fNormalizationFactor      = capture_params.fNormalizationFactor   | audioinput.ENUM.capture.DEFAULT.NORMALIZATION_FACTOR;
+    audioinput.capture.params.fNormalizationFactor      = capture_params.fNormalizationFactor   || audioinput.ENUM.capture.DEFAULT.NORMALIZATION_FACTOR;
     audioinput.capture.params.nConcatenateMaxChunks     = capture_params.nConcatenateMaxChunks  || audioinput.ENUM.capture.DEFAULT.CONCATENATE_MAX_CHUNKS;
-    audioinput.capture.params.AudioContext              = null;
-    audioinput.capture.params.bStreamToWebAudio         = capture_params.bStreamToWebAudio      || audioinput.ENUM.capture.DEFAULT.STREAM_TO_WEBAUDIO;
-    audioinput.capture.params.bStartMFCC                = capture_params.bStartMFCC             || audioinput.ENUM.capture.DEFAULT.START_MFCC;
-    audioinput.capture.params.bStartVAD                 = capture_params.bStartVAD              || audioinput.ENUM.capture.DEFAULT.START_VAD;
+    audioinput.capture.params.nDataDest                 = capture_params.nDataDest              || audioinput.ENUM.capture.DEFAULT.DATA_DEST;
 
     if (audioinput.capture.params.nChannels < 1 && audioinput.capture.params.nChannels > 2) {
         throw "Invalid number of channels (" + audioinput.capture.params.nChannels + "). Only mono (1) and stereo (2) is" +" supported.";
@@ -164,6 +215,25 @@ audioinput.checkCaptureParams = function(capture_params)
     return JSON.stringify(audioinput.capture.params); 
 };
 
+audioinput.checkMfccParams = function(mfcc_params)
+{
+    audioinput.mfcc.params.nNumberOfMFCCParameters      = mfcc_params.nNumberOfMFCCParameters   || audioinput.ENUM.mfcc.DEFAULT.nNumberOfMFCCParameters; //without considering 0-th  
+    audioinput.mfcc.params.dSamplingFrequency           = mfcc_params.dSamplingFrequency        || audioinput.ENUM.mfcc.DEFAULT.dSamplingFrequency;    
+    audioinput.mfcc.params.nNumberofFilters             = mfcc_params.nNumberofFilters          || audioinput.ENUM.mfcc.DEFAULT.nNumberofFilters;    
+    audioinput.mfcc.params.nFftLength                   = mfcc_params.nFftLength                || audioinput.ENUM.mfcc.DEFAULT.nFftLength;      
+    audioinput.mfcc.params.bIsLifteringEnabled          = mfcc_params.bIsLifteringEnabled       || audioinput.ENUM.mfcc.DEFAULT.bIsLifteringEnabled ;    
+    audioinput.mfcc.params.nLifteringCoefficient        = mfcc_params.nLifteringCoefficient     || audioinput.ENUM.mfcc.DEFAULT.nLifteringCoefficient;
+    audioinput.mfcc.params.bCalculate0ThCoeff           = mfcc_params.bCalculate0ThCoeff        || audioinput.ENUM.mfcc.DEFAULT.bCalculate0ThCoeff;
+    audioinput.mfcc.params.nWindowDistance              = mfcc_params.nWindowDistance           || audioinput.ENUM.mfcc.DEFAULT.nWindowDistance;
+    audioinput.mfcc.params.nWindowLength                = mfcc_params.nWindowLength             || audioinput.ENUM.mfcc.DEFAULT.nWindowLength;          
+    audioinput.mfcc.params.nDataType                    = mfcc_params.nDataType                 || audioinput.ENUM.mfcc.DEFAULT.nDataType;          
+    audioinput.mfcc.params.nDataDest                    = mfcc_params.nDataDest                 || audioinput.ENUM.mfcc.DEFAULT.nDataDest;          
+    audioinput.mfcc.params.nDataOrig                    = mfcc_params.nDataOrig                 || audioinput.ENUM.mfcc.DEFAULT.nDataOrig;          
+    audioinput.mfcc.params.sOutputPath                  = mfcc_params.sOutputPath               || audioinput.ENUM.mfcc.DEFAULT.sOutputPath;          
+    audioinput.mfcc.params.nContextFrames               = mfcc_params.nContextFrames            || audioinput.ENUM.mfcc.DEFAULT.nContextFrames;          
+    
+    return JSON.stringify(audioinput.mfcc.params); 
+};
 //---------------------------------------------------------------
 /**
  * Start capture of Audio input
@@ -181,9 +251,12 @@ audioinput.checkCaptureParams = function(capture_params)
  *  concatenateMaxChunks (How many packets will be merged each time, low = low latency but can require more resources)
  *  audioSourceType (Use audioinput.AUDIOSOURCE_TYPE.)
  */
-audioinput.start = function (captureCfg, mfccCfg) {
+audioinput.startCapture = function (captureCfg, mfccCfg) {
     if (!audioinput._capturing) 
     {
+        if(captureCfg == null)  captureCfg = {};
+        if(mfccCfg == null)     mfccCfg = {};
+        
         // overwrite default params with exogenous ones
         var json_capture_params     = audioinput.checkCaptureParams(captureCfg);
         var json_mfcc_params        = audioinput.checkMfccParams(mfccCfg);
@@ -191,18 +264,19 @@ audioinput.start = function (captureCfg, mfccCfg) {
         exec(audioinput._pluginEvent, audioinput._pluginError, audioinput.pluginName, "startCapture",
             [json_capture_params,
              json_mfcc_params]);
+    }
+    else {
+        throw "Already capturing!";
+    }
+};
 
-        audioinput._capturing = true;
-        
-        if (audioinput.capture.params.bStreamToWebAudio) {
-            if (audioinput._initWebAudio(audioinput.capture.params.AudioContext)) {
-                audioinput._audioDataQueue = [];
-                audioinput._getNextToPlay();
-            }
-            else {
-                throw "The Web Audio API is not supported on this platform!";
-            }
-        }
+audioinput.startMicPlayback = function (captureCfg) 
+{
+    if (!audioinput._capturing) 
+    {
+        if(captureCfg == null)  captureCfg = {};
+        var json_capture_params     = audioinput.checkCaptureParams(captureCfg);  // overwrite default params with exogenous ones
+        exec(audioinput._pluginEvent, audioinput._pluginError, audioinput.pluginName, "startMicPlayback", [json_capture_params]);
     }
     else {
         throw "Already capturing!";
@@ -212,43 +286,21 @@ audioinput.start = function (captureCfg, mfccCfg) {
 /**
  * Stop capturing audio
  */
-audioinput.stop = function () {
+audioinput.stopCapture = function () {
     if (audioinput._capturing) {
         exec(audioinput._pluginEvent, audioinput._pluginError, audioinput.pluginName, "stopCapture", []);
-        audioinput._capturing = false;    
-    }
-
-    if (audioinput.capture.params.bStreamToWebAudio) {
-        if (audioinput._timerGetNextAudio) {
-            clearTimeout(audioinput._timerGetNextAudio);
-        }
-        audioinput._audioDataQueue = null;
     }
 };
 
-//---------------------------------------------------------------
-/**
- * Start calculating MFCC
- */
-audioinput.startMFCC = function () {
-    if (audioinput._capturing) 
-        exec(null, audioinput._pluginError, audioinput.pluginName, "stopMFCC", [audioinput.mfcc.params]);
-};
 
-/**
- * Stop calculating MFCC
- */
-audioinput.stopMFCC = function () {
+audioinput.setPlayBackPercVol = function (perc) {
     if (audioinput._capturing) 
-        exec(null, audioinput._pluginError, audioinput.pluginName, "stopMFCC", []);
+        exec(null, audioinput._pluginError, audioinput.pluginName, "setPlayBackPercVol", [perc]);
 };
 
 audioinput.getMFCC = function(mfcc_params, source, filepath_noext)
 {
     var mfcc_json_params    = audioinput.checkMfccParams(mfcc_params);
-    
-//    audioinput.successMFCC      = successCB;
-//    audioinput.errorMFCC        = errorCB;
     
     //check params consistency
     if(source == null || !source.length)
@@ -256,12 +308,12 @@ audioinput.getMFCC = function(mfcc_params, source, filepath_noext)
         errorCB("ERROR in mfccCalculation: source is empty")
         return false;
     }
-    else if(mfcc_params.nDataOrig == audioinput.ENUM.mfcc.DATAORIGIN.JSONDATA && source.constructor !== Array) 
+    else if(mfcc_params.nDataOrig == audioinput.ENUM.PLUGIN.MFCC_DATAORIGIN_JSONDATA && source.constructor !== Array) 
     {
         errorCB("ERROR in mfccCalculation: you set data origin as data, but did not provide a data array");
         return false;
     }
-    else if ((mfcc_params.nDataOrig == audioinput.ENUM.mfcc.DATAORIGIN.FILE || mfcc_params.nDataOrig == audioinput.ENUM.mfcc.DATAORIGIN.FOLDER) && source.constructor !== String)        
+    else if ((mfcc_params.nDataOrig == audioinput.ENUM.PLUGIN.MFCC_DATAORIGIN_FILE || mfcc_params.nDataOrig == audioinput.ENUM.PLUGIN.MFCC_DATAORIGIN_FOLDER) && source.constructor !== String)        
     {
         errorCB("ERROR in mfccCalculation: you set data origin as file/folder, but did not provide a string parameter");
         return false;
@@ -271,7 +323,7 @@ audioinput.getMFCC = function(mfcc_params, source, filepath_noext)
 };
 
 //==================================================================================================================
-// FROM PLUGIN TO WEBLAYER
+// PLUGIN CALLBACKS (from JAVA => JS)
 //==================================================================================================================
 /**
  * Callback from plugin
@@ -282,39 +334,53 @@ audioinput._pluginEvent = function (data) {
     try {
         switch(data.type)
         {
-            case audioinput.ENUM.RETURN.CAPTURE_DATA:
+            case audioinput.ENUM.PLUGIN.CAPTURE_RESULT:
                 
-                if (data && data.data && data.data.length > 0) {
-                    var audioData = JSON.parse(data.data);
-
-                    if(audioinput.capture.params.bStreamToWebAudio && audioinput._capturing)
-                            audioinput._enqueueAudioData(audioData);
-                    else    cordova.fireWindowEvent("audioinput", {data: audioData});
-                }
-                else if (data && data.error) {
-                    audioinput._captureErrorEvent(data.error);
+                switch(data.data_type)
+                {
+                    case audioinput.ENUM.PLUGIN.CAPTURE_DATADEST_JS_RAW:
+                        var audioData = JSON.parse(data.data);
+                        cordova.fireWindowEvent("audioinput", {data: audioData});
+                        break;
+                    
+                    case audioinput.ENUM.PLUGIN.CAPTURE_DATADEST_JS_RAWDB:
+                        var audioData = JSON.parse(data.data);
+                        var decibels  = JSON.parse(data.decibels);
+                        cordova.fireWindowEvent("audioinput", {data: audioData, decibels: decibels});
+                        break;
+                        
+                    case audioinput.ENUM.PLUGIN.CAPTURE_DATADEST_JS_DB:
+                        cordova.fireWindowEvent("audiometer", {decibels: Math.round(JSON.parse(data.decibels))});
+                        break;
                 }
                 break;
                 
-            case audioinput.ENUM.RETURN.CAPTURE_STOP:
+            case audioinput.ENUM.PLUGIN.CAPTURE_STATUS_STARTED:
+                console.log("audioInputMfcc._startaudioInputEvent");
+                cordova.fireWindowEvent("capturestarted", {});
+                audioinput._capturing = true;                   
+                break;
+                
+            case audioinput.ENUM.PLUGIN.CAPTURE_STATUS_STOPPED:
                 console.log("audioInputMfcc._stopaudioInputEvent: captured " + parseInt(data.bytesread) + "bytes, " + parseInt(data.datacaptured)*12 + " time windows, dataprocessed: " + parseInt(data.dataprocessed)*12);
                 cordova.fireWindowEvent("capturestopped", {data: data});
+                audioinput._capturing = false;                   
                 break;
                 
-            case audioinput.ENUM.RETURN.MFCC_DATA:
+            case audioinput.ENUM.PLUGIN.MFCC_RESULT:
                 cordova.fireWindowEvent("mfccdata", {data: data});
                 break;
                 
-            case audioinput.ENUM.RETURN.MFCC_PROGRESS_DATA:
+            case audioinput.ENUM.PLUGIN.MFCC_STATUS_PROGRESS_DATA:
                 cordova.fireWindowEvent("mfccprogressdata", {data: data});
                 break;
                 
-            case audioinput.ENUM.RETURN.MFCC_PROGRESS_FILE:
+            case audioinput.ENUM.PLUGIN.MFCC_STATUS_PROGRESS_FILE:
                 cordova.fireWindowEvent("mfccprogressfile", {data: data});
                 break;
                 
             // removed for a BUG in the code....folder processing completion is presently resolved in the web layer.
-//            case audioinput.ENUM.RETURN.MFCC_PROGRESS_FOLDER:
+//            case audioinput.ENUM.PLUGIN.MFCC_PROGRESS_FOLDER:
 //                cordova.fireWindowEvent("mfccprogressfolder", {data: data});
 //                break;
 
@@ -322,7 +388,7 @@ audioinput._pluginEvent = function (data) {
         }
     }
     catch (ex) {
-        audioinput._audioInputErrorEvent("audioinput._audioInputEvent ex: " + ex);
+        audioinput._pluginError("audioinput._audioInputEvent ex: " + ex);
     }
 };
 
@@ -331,55 +397,15 @@ audioinput._pluginEvent = function (data) {
  * @private
  */
 // TODO : receive an error code from plugin
-audioinput._pluginError = function (e) {
+audioinput._pluginError = function (e) 
+{
     cordova.fireWindowEvent("pluginError", {message: e});
+    audioinput._capturing = false;                   
 };
-
-/**
- * Callback for MFCC calculation
- *
- * @param {Object} mfccData     
- */
-//audioinput.onMFCCSuccess = function (mfccData) {
-//    audioinput.success(mfccData);
-//};
-//
-//audioinput.onMFCCError = function (e) {
-//    audioinput.error(e);
-//};
 
 //==================================================================================================================
 // INTERNAL
 //==================================================================================================================
-/**
- * Connect the audio node
- *
- * @param audioNode
- */
-audioinput.connect = function (audioNode) {
-    if (audioinput._micGainNode) {
-        audioinput.disconnect();
-        audioinput._micGainNode.connect(audioNode);
-    }
-};
-
-/**
- * Disconnect the audio node
- */
-audioinput.disconnect = function () {
-    if (audioinput._micGainNode) {
-        audioinput._micGainNode.disconnect();
-    }
-};
-
-/**
- * Returns the internally created Web Audio Context (if any exists)
- *
- * @returns {*}
- */
-audioinput.getAudioContext = function () {
-    return audioinput._audioContext;
-};
 
 /**
  *
@@ -397,161 +423,5 @@ audioinput.isCapturing = function () {
     return audioinput._capturing;
 };
 
-
-/******************************************************************************************************************/
-/*                                                PRIVATE/INTERNAL                                                */
-/******************************************************************************************************************/
-
-audioinput._capturing = false;
-audioinput._audioDataQueue = null;
-audioinput._timerGetNextAudio = null;
-audioinput._audioContext = null;
-audioinput._micGainNode = null;
-audioinput._webAudioAPISupported = false;
-
-
-/**
- * Normalize audio input
- *
- * @param {Object} pcmData
- * @private
- */
-//audioinput._normalizeAudio = function (pcmData) {
-//
-//    if (audioinput.capture.params.bNormalize) {
-//        for (var i = 0; i < pcmData.length; i++) {
-//            pcmData[i] = parseFloat(pcmData[i] / audioinput.capture.params.fNormalizationFactor);
-//        }
-//
-//        // If last value is NaN, remove it.
-//        if (isNaN(pcmData[pcmData.length - 1])) {
-//            pcmData.pop();
-//        }
-//    }
-//
-//    return pcmData;
-//};
-
-
-/**
- * Consumes data from the audioinput queue
- * @private
- */
-audioinput._getNextToPlay = function () {
-    try {
-        var duration = 100;
-
-        if (audioinput._audioDataQueue.length > 0) {
-            var concatenatedData = [];
-            for (var i = 0; i < audioinput.capture.params.nConcatenateMaxChunks; i++) {
-                if (audioinput._audioDataQueue.length === 0) {
-                    break;
-                }
-                concatenatedData = concatenatedData.concat(audioinput._dequeueAudioData());
-            }
-
-            duration = audioinput._playAudio(concatenatedData) * 1000;
-        }
-
-        if (audioinput._capturing) {
-            audioinput._timerGetNextAudio = setTimeout(audioinput._getNextToPlay, duration);
-        }
-    }
-    catch (ex) {
-        audioinput._audioInputErrorEvent("audioinput._getNextToPlay ex: " + ex);
-    }
-};
-
-
-/**
- * Play audio using the Web Audio API
- * @param data
- * @returns {Number}
- * @private
- */
-audioinput._playAudio = function (data) {
-    try {
-        if (data && data.length > 0) {
-            var audioBuffer = audioinput._audioContext.createBuffer(audioinput.capture.params.nChannels, (data.length / audioinput.capture.params.nChannels), audioinput.capture.params.nSampleRate),
-                chdata = [],
-                index = 0;
-
-            if (audioinput.capture.params.nChannels > 1) {
-                for (var i = 0; i < audioinput.capture.params.nChannels; i++) {
-                    while (index < data.length) {
-                        chdata.push(data[index + i]);
-                        index += parseInt(audioinput.capture.params.nChannels);
-                    }
-
-                    audioBuffer.getChannelData(i).set(new Float32Array(chdata));
-                }
-            }
-            else {
-                audioBuffer.getChannelData(0).set(data);
-            }
-
-            var source = audioinput._audioContext.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(audioinput._micGainNode);
-            source.start(0);
-
-            return audioBuffer.duration;
-        }
-    }
-    catch (ex) {
-        audioinput._audioInputErrorEvent("audioinput._playAudio ex: " + ex);
-    }
-
-    return 0;
-};
-
-
-/**
- * Creates the Web Audio Context and audio nodes for output.
- * @private
- */
-audioinput._initWebAudio = function (audioCtxFromCfg) {
-    try {
-        if (audioCtxFromCfg) {
-            audioinput._audioContext = audioCtxFromCfg;
-        }
-        else if (!audioinput._audioContext) {
-            window.AudioContext = window.AudioContext || window.webkitAudioContext;
-            audioinput._audioContext = new window.AudioContext();
-            audioinput._webAudioAPISupported = true;
-        }
-
-        // Create a gain node for volume control
-        if (!audioinput._micGainNode) {
-            audioinput._micGainNode = audioinput._audioContext.createGain();
-        }
-
-        return true;
-    }
-    catch (e) {
-        audioinput._webAudioAPISupported = false;
-        return false;
-    }
-};
-
-/**
- * Puts audio data at the end of the queue
- *
- * @returns {*}
- * @private
- */
-audioinput._enqueueAudioData = function (data) {
-    audioinput._audioDataQueue.push(data);
-};
-
-/**
- * Gets and removes the oldest audio data from the queue
- *
- * @returns {*}
- * @private
- */
-audioinput._dequeueAudioData = function () {
-    return audioinput._audioDataQueue.shift();
-};
-
+//=========================================================================================
 module.exports = audioinput;

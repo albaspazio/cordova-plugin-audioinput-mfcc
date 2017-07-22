@@ -1,56 +1,137 @@
 package com.allspeak.audiocapture;
 
 import org.apache.cordova.CordovaPlugin;
+import org.apache.cordova.CallbackContext;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import android.os.Handler;
-import android.os.Message;
-import android.os.Bundle;
 
-import android.content.pm.PackageManager;
-import org.apache.cordova.PermissionHelper;
-import android.Manifest;
-
+import com.allspeak.ENUMS;
+import com.allspeak.ERRORS;
+import com.allspeak.utility.Messaging;
+//=========================================================================================================================
 public class AudioInputCapture
 {
     private static final String LOG_TAG         = "AudioInputCapture";
 
-    private AudioInputReceiver receiver         = null;
+    private AudioInputReceiver mAIReceiver      = null;
+    private AudioPlayback mPlayback             = null;
     private CordovaPlugin plugin                = null;
 
-    public static String[]  permissions         = { Manifest.permission.RECORD_AUDIO };
-    public static int       RECORD_AUDIO        = 0;
-    public static final int PERMISSION_DENIED_ERROR = 20;
-
     private CFGParams cfgParams                 = null;     // Capture parameters
+
+    private int nMode                           = ENUMS.CAPTURE_MODE;
     
     private boolean bIsCapturing                = false;
-    private Handler handler;
-    private Message message;
-    private Bundle messageBundle                = new Bundle();    
+    private Handler mStatusCallback             = null;   // destination handler of status messages
+    private Handler mResultCallback             = null;   // destination handler of data result
+    private Handler mCommandCallback            = null;   // destination handler of output command
+    private CallbackContext mWlCb               = null;   // access to web layer 
     //======================================================================================================================
-    public AudioInputCapture(CFGParams params, Handler handl, CordovaPlugin _plugin)
+    public AudioInputCapture(CFGParams params, Handler cb)
     {
-        cfgParams   = params;
-        handler     = handl;
+        cfgParams       = params;
+        mStatusCallback     = cb;        
+        mCommandCallback    = cb;        
+        mResultCallback     = cb;  
+    } 
+    public AudioInputCapture(CFGParams params, Handler scb, Handler ccb, Handler rcb)
+    {
+        cfgParams       = params;
+        mStatusCallback     = scb;        
+        mCommandCallback    = ccb;        
+        mResultCallback     = rcb;  
+    } 
+    public AudioInputCapture(CFGParams params, Handler phandl, CordovaPlugin _plugin)
+    {
+        this(params, phandl);
         plugin      = _plugin;
     }    
-    
-    public void start()
+    public AudioInputCapture(CFGParams params, Handler phandl, int mode)
     {
-        promptForRecord();
+        this(params, phandl);
+        nMode = mode;
+    }     
+    public AudioInputCapture(CFGParams params, Handler phandl, CordovaPlugin _plugin, int mode)
+    {
+        this(params, phandl, _plugin);
+        nMode = mode;
+    }     
+    public AudioInputCapture(CFGParams params, Handler scb, Handler ccb, Handler rcb, CordovaPlugin _plugin)
+    {
+        this(params, scb, ccb, rcb);
+        plugin      = _plugin;
+    } 
+    public AudioInputCapture(CFGParams params, Handler scb, Handler ccb, Handler rcb, int mode)
+    {
+        this(params, scb, ccb, rcb);
+        nMode = mode;
+    }       
+    public AudioInputCapture(CFGParams params, Handler scb, Handler ccb, Handler rcb, CordovaPlugin _plugin, int mode)
+    {
+        this(params, scb, ccb, rcb, _plugin);
+        nMode = mode;
+    }    
+    
+    public void setWlCb(CallbackContext wlcb)
+    {
+        mWlCb = wlcb;        
+    }    
+    //======================================================================================================================
+    
+    public boolean start()
+    {
+        try
+        {
+            switch(nMode)
+            {
+                case ENUMS.CAPTURE_MODE:
+
+                    mAIReceiver = new AudioInputReceiver(cfgParams.nSampleRate, cfgParams.nBufferSize, cfgParams.nChannels, cfgParams.sFormat, cfgParams.nAudioSourceType);
+                    mAIReceiver.setHandler(mStatusCallback, mCommandCallback, mResultCallback);
+                    mAIReceiver.start();   
+                    bIsCapturing = true;
+                    break;
+
+                case ENUMS.PLAYBACK_MODE:
+
+                    mPlayback = new AudioPlayback(cfgParams.nSampleRate, cfgParams.nBufferSize, cfgParams.nChannels, cfgParams.sFormat, cfgParams.nAudioSourceType);
+                    mPlayback.setHandler(mStatusCallback, mCommandCallback, mResultCallback);
+                    mPlayback.setWlCb(mWlCb);
+                    mPlayback.start();   
+                    bIsCapturing = true;                
+            }            
+            return bIsCapturing;
+        }
+        catch(Exception e)
+        {
+            e.printStackTrace();
+            Messaging.sendMessageToHandler(mStatusCallback, ERRORS.CAPTURE_ERROR, "error", e.toString());
+            return false;            
+        }
     }
 
     public void stop()
     {
         try
         {
-            if(receiver != null)
-                if (!receiver.isInterrupted()) receiver.interrupt();
+            switch(nMode)
+            {
+                case ENUMS.CAPTURE_MODE:
+
+                    if(mAIReceiver != null)   if (!mAIReceiver.isInterrupted()) mAIReceiver.interrupt();
+                    break;
+
+                case ENUMS.PLAYBACK_MODE:
+
+                    if(mPlayback != null)   if (!mPlayback.isInterrupted()) mPlayback.interrupt();                
+            }            
             bIsCapturing = false;
         }
         catch (Exception e) 
         {
-            sendMessageToHandler("error", e.toString());
+            Messaging.sendMessageToHandler(mStatusCallback, ERRORS.CAPTURE_ERROR, "error", e.toString());
         }        
     }
     
@@ -58,55 +139,62 @@ public class AudioInputCapture
     {
         return bIsCapturing;
     }    
-    //===========================================================================
-    // PRIVATE
-    //===========================================================================
-    private void startCapturing()
+    
+    public void setPlayBackPercVol(int perc)
     {
-        receiver = new AudioInputReceiver(cfgParams.nSampleRate, cfgParams.nBufferSize, cfgParams.nChannels, cfgParams.sFormat, cfgParams.nAudioSourceType);
-        receiver.setHandler(handler);
-        receiver.start();   
-        bIsCapturing = true;
+        if(nMode == ENUMS.PLAYBACK_MODE && bIsCapturing)
+            mPlayback.setPlayBackPercVol(perc);
     }
-    /**
-     * Ensure that we have gotten record audio permission
-     */
-    private void promptForRecord() 
+    
+    //========================================================================================
+    // ACCESSORY STATIC FUNCTIONS
+    //========================================================================================
+    public static float[] normalizeAudio(short[] pcmData, float normFactor) 
     {
-        if(PermissionHelper.hasPermission(plugin, permissions[RECORD_AUDIO])) 
-            startCapturing();
-        else
-            getMicPermission(RECORD_AUDIO);
-    }
-
-    /**
-    * Prompt user for record audio permission
-    */
-    protected void getMicPermission(int requestCode) 
-    {
-        PermissionHelper.requestPermission(plugin, requestCode, permissions[RECORD_AUDIO]);
-    }
-    /**
-     * Handle request permission result
-     */
-    public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults)
-    {
-        for(int r:grantResults) 
-        {
-            if(r == PackageManager.PERMISSION_DENIED) 
-            {
-                sendMessageToHandler("error", "PERMISSION_DENIED_ERROR");
-                return;
-            }
+        int len         = pcmData.length;
+        float[] data    = new float[len];
+        for (int i = 0; i < len ; i++) {
+            data[i]     = (float)(pcmData[i]/normFactor);
         }
-        startCapturing();
-    }    
+//        // If last value is NaN, remove it.
+//        if (Float.isNaN(data[data.length - 1])) {data = ArrayUtils.remove(data, data.length - 1);}
+        return data;
+    }
 
-    private void sendMessageToHandler(String field, String info)
+    /**
+     * @param audioBuffer
+     * @private
+     * @returns {*}
+     */
+    public static float getAudioLevels(float[] audioBuffer) 
     {
-        messageBundle.putString(field, info);
-        message = handler.obtainMessage();
-        message.setData(messageBundle);
-        handler.sendMessage(message);        
+        try 
+        {
+            float total = 0;
+            int length  = audioBuffer.length;
+            float absFreq;
+
+            for (int i = 0; i < length; i++) 
+            {
+                absFreq = Math.abs(audioBuffer[i]);
+                total += ( absFreq * absFreq );
+            }
+            return (float)Math.sqrt(total / length);
+        }
+        catch (Exception e) {
+            throw e;
+        }
     }    
+    
+    /**
+     * Convert amplitude to decibel
+     *
+     * @param amplitudeLevel
+     * @returns {number}
+     * @private
+     */
+    public static float getDecibelFromAmplitude(float amplitudeLevel) {
+        return (float) (20*Math.log10(amplitudeLevel));
+    }    
+    //========================================================================================
 }
