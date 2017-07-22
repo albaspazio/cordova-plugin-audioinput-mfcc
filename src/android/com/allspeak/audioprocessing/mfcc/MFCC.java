@@ -21,6 +21,7 @@ import java.io.FilenameFilter;
 
 import android.os.ResultReceiver;
 
+
 import com.allspeak.ENUMS;
 import com.allspeak.ERRORS;
 import com.allspeak.audioprocessing.WavFile;
@@ -45,11 +46,14 @@ public class MFCC
 {
     private static final String TAG             = "MFCC";
     
+
   
+
     private MFCCParams mfccParams               = null;                                   // MFCC parameters
     private MFCCCalcJAudio mfcc                 = null; 
     
     // properties to send results back to Plugin Main
+
     private ResultReceiver mReceiver            = null;     // IntentService
     private Handler mStatusCallback             = null;     // Thread
     private Handler mCommandCallback            = null;     // Thread
@@ -86,6 +90,7 @@ public class MFCC
     //================================================================================================================
     // CONSTRUCTORS
     //================================================================================================================
+
     // to be used with Thread implementation
     public MFCC(MFCCParams params, Handler cb)
     {
@@ -109,6 +114,7 @@ public class MFCC
         this(params, handl);
         callbackContext     = wlcallback;
     }   
+
     // may also send results directly to Web Layer
     public MFCC(MFCCParams params, Handler scb, Handler ccb, Handler rcb, CallbackContext wlcallback)
     {
@@ -230,12 +236,14 @@ public class MFCC
             processRawData(data);
 //            tp.addTimepoint(2);   
             Messaging.sendMessageToHandler(mStatusCallback, ENUMS.MFCC_STATUS_PROGRESS_FILE, "progress_file", mfccParams.sOutputPath);
+
          }
         catch(Exception e)
         {
             e.printStackTrace();
             Log.e(TAG, "processFile" + ": Error: " + e.toString());
             Messaging.sendMessageToHandler(mStatusCallback, ERRORS.MFCC_ERROR, "error", e.getMessage());
+
         }        
     }
     
@@ -279,8 +287,7 @@ public class MFCC
     {
 //        Messaging.sendDataToHandler(mCommandCallback, ENUMS.TF_CMD_RECOGNIZE, , ); ///
     }
-    
-    
+
     //======================================================================================
     // E X P O R T
     //======================================================================================
@@ -340,6 +347,7 @@ public class MFCC
             //------------------------------------------------------------------
             switch(mfccParams.nDataDest)
             {
+
                 case ENUMS.MFCC_DATADEST_FILE:
                 case ENUMS.MFCC_DATADEST_FILEWEB:
                     Messaging.sendMessageToHandler(mStatusCallback, ENUMS.MFCC_STATUS_PROGRESS_DATA, "progress", Integer.toString(nFrames));              
@@ -350,6 +358,7 @@ public class MFCC
             //------------------------------------------------------------------
             switch(mfccParams.nDataDest)
             {
+
                 case ENUMS.MFCC_DATADEST_NONE:
                 case ENUMS.MFCC_DATADEST_JSPROGRESS:            
                 case ENUMS.MFCC_DATADEST_JSDATA:            

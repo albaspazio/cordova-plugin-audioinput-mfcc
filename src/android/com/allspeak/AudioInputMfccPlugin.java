@@ -11,6 +11,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.Context;
@@ -37,8 +38,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
     private static final String LOG_TAG         = "AudioInputMfccPlugin";
     
     private Context mContext                    = null;
-    
-    //cordova stuffs
+
     private CallbackContext callbackContext     = null;
     private CordovaInterface cordovaInterface   = null;
     
@@ -51,7 +51,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
     
     boolean isCapturing                         = false;
     //-----------------------------------------------------------------------------------------------
-    
+   
     private MFCCService mService                = null;
     private boolean mBound                      = false;
     
@@ -62,6 +62,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
     public void initialize(CordovaInterface cordova, CordovaWebView webView) 
     {
         super.initialize(cordova, webView);
+
         Log.d(LOG_TAG, "Initializing AudioInputMfccPlugin");
 
         //get plugin context
@@ -159,6 +160,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
                 return true;
             }
             try 
+
             {
                 mCfgParams = new CFGParams(new JSONObject((String)args.get(0))); 
                 
@@ -199,6 +201,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
             {               
                 // JS interface call params:     mfcc_json_params, source;  params have been validated in the js interface
                 // should have a nDataDest > 0  web,file,both
+
                 mMfccParams             = new MFCCParams(new JSONObject((String)args.get(0)));
                 String inputpathnoext   = args.getString(1); 
                 
@@ -217,6 +220,7 @@ public class AudioInputMfccPlugin extends CordovaPlugin
     }
     
     @Override
+
     public void onDestroy() 
     {
         if (mBound) 
